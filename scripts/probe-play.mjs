@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 /**
- * Instrumented playthrough: screenshots + live hero/HUD/console dump.
+ * Instrumented playthrough at 1280×720 and 1920×1080.
  */
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const outDir = path.join(root, 'recordings', 'probe');
 const origin = 'http://localhost:5173';
+const sizes = [
+  { w: 1280, h: 720 },
+  { w: 1920, h: 1080 },
+];
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,18 +28,24 @@ async function snapshot(page) {
   return page.evaluate(() => {
     const game = window.__HOPE_GAME;
     if (!game) return { error: 'no game' };
+    const scale = { w: game.scale.width, h: game.scale.height };
     const scene = game.scene.getScene('GameScene');
     if (!scene || !scene.sys.settings.active) {
-      return { scene: game.scene.getScenes(true).map((s) => s.sys.settings.key) };
+      return {
+        scale,
+        scene: game.scene.getScenes(true).map((s) => s.sys.settings.key),
+      };
     }
     const hero = scene.ctx.hero;
     const state = scene.ctx.state;
     return {
       scene: 'GameScene',
+      scale,
       mode: state.gameMode,
       pause: state.gamePause,
       frame: state.gameFrame,
       pos: [...hero.pos],
+      heroView: hero.view,
       lives: hero.lives,
       shields: hero.shields,
       damage: hero.damage,
@@ -50,67 +59,62 @@ async function snapshot(page) {
   });
 }
 
-await mkdir(outDir, { recursive: true });
-
 const browser = await chromium.launch({
   headless: true,
   args: ['--autoplay-policy=no-user-gesture-required'],
 });
-const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
-const logs = [];
-page.on('console', (msg) => logs.push(`console.${msg.type()}: ${msg.text()}`));
-page.on('pageerror', (err) => logs.push(`pageerror: ${err.message}`));
 
-await page.goto(origin, { waitUntil: 'networkidle' });
-await page.waitForSelector('canvas', { timeout: 20000 });
-await sleep(700);
-await page.screenshot({ path: path.join(outDir, '01-menu.png') });
+const summary = [];
 
-await page.locator('canvas').click({ position: { x: 400, y: 450 } });
-await sleep(400);
-await page.screenshot({ path: path.join(outDir, '02-start.png') });
-console.log('start', JSON.stringify(await snapshot(page)));
+for (const size of sizes) {
+  const outDir = path.join(root, 'recordings', 'probe', `${size.w}x${size.h}`);
+  await mkdir(outDir, { recursive: true });
+  const page = await browser.newPage({ viewport: { width: size.w, height: size.h } });
+  const logs = [];
+  page.on('console', (msg) => logs.push(`console.${msg.type()}: ${msg.text()}`));
+  page.on('pageerror', (err) => logs.push(`pageerror: ${err.message}`));
 
-await page.mouse.down();
-await hold(page, 'KeyD', 2500);
-await page.screenshot({ path: path.join(outDir, '03-right-edge.png') });
-console.log('right', JSON.stringify(await snapshot(page)));
+  await page.goto(origin, { waitUntil: 'networkidle' });
+  await page.waitForSelector('canvas', { timeout: 20000 });
+  await sleep(800);
+  await page.screenshot({ path: path.join(outDir, '01-menu.png') });
 
-await hold(page, 'KeyA', 3500);
-await page.screenshot({ path: path.join(outDir, '04-left-edge.png') });
-console.log('left', JSON.stringify(await snapshot(page)));
+  await page.locator('canvas').click({ position: { x: Math.floor(size.w / 2), y: Math.floor(size.h * 0.72) } });
+  await sleep(500);
+  await page.screenshot({ path: path.join(outDir, '02-start.png') });
+  const startSnap = await snapshot(page);
+  console.log(size.w, 'start', JSON.stringify(startSnap));
 
-await hold(page, 'KeyW', 2500);
-await page.screenshot({ path: path.join(outDir, '05-top-edge.png') });
-console.log('top', JSON.stringify(await snapshot(page)));
+  await page.mouse.down();
+  await hold(page, 'KeyD', 2500);
+  await page.screenshot({ path: path.join(outDir, '03-right-edge.png') });
+  console.log(size.w, 'right', JSON.stringify(await snapshot(page)));
 
-await hold(page, 'KeyS', 3000);
-await page.screenshot({ path: path.join(outDir, '06-bottom-edge.png') });
-console.log('bottom', JSON.stringify(await snapshot(page)));
+  await hold(page, 'KeyA', 3500);
+  await page.screenshot({ path: path.join(outDir, '04-left-edge.png') });
+  console.log(size.w, 'left', JSON.stringify(await snapshot(page)));
 
-await hold(page, 'KeyP', 50);
-await sleep(200);
-await page.screenshot({ path: path.join(outDir, '07-paused.png') });
-console.log('paused', JSON.stringify(await snapshot(page)));
-await hold(page, 'KeyP', 50);
-await sleep(100);
+  await hold(page, 'KeyW', 2500);
+  await page.screenshot({ path: path.join(outDir, '05-top-edge.png') });
+  console.log(size.w, 'top', JSON.stringify(await snapshot(page)));
 
-await hold(page, 'KeyD', 400);
-await hold(page, 'KeyW', 400);
-await sleep(1500);
-await page.screenshot({ path: path.join(outDir, '08-combat.png') });
-console.log('combat', JSON.stringify(await snapshot(page)));
+  await hold(page, 'KeyS', 2000);
+  await page.screenshot({ path: path.join(outDir, '06-combat.png') });
+  const combat = await snapshot(page);
+  console.log(size.w, 'combat', JSON.stringify(combat));
 
-await page.mouse.up();
-await sleep(300);
-await page.screenshot({ path: path.join(outDir, '09-after-fire.png') });
+  await page.mouse.up();
+  await sleep(200);
 
-if (logs.length) {
-  console.log('LOGS');
-  for (const line of logs) console.log(line);
-} else {
-  console.log('LOGS none');
+  const pageerrors = logs.filter((l) => l.startsWith('pageerror'));
+  summary.push({ size, startSnap, combat, pageerrors, logs: logs.slice(0, 20) });
+  await writeFile(path.join(outDir, 'snapshot.json'), JSON.stringify({ size, startSnap, combat, pageerrors }, null, 2));
+  await page.close();
 }
 
 await browser.close();
-console.log(`screenshots in ${outDir}`);
+await writeFile(
+  path.join(root, 'recordings', 'probe', 'summary.json'),
+  JSON.stringify(summary, null, 2),
+);
+console.log('done', JSON.stringify(summary.map((s) => ({ size: s.size, pageerrors: s.pageerrors }))));

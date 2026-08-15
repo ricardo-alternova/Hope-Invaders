@@ -1,4 +1,5 @@
 import { HERO_Z, SCREEN_BOUND_X, SCREEN_BOUND_Y, SCREEN_H, SCREEN_W } from '../constants';
+import { DEFAULT_VIEW, type ViewSize } from './viewport';
 
 const FOV_RAD = (30 * Math.PI) / 180;
 const Z_TRANS = -56.5;
@@ -14,20 +15,30 @@ export function perspectiveScale(_x: number, _y: number, z = HERO_Z): number {
 }
 
 /** Convert world coordinates (+Y up) to Phaser screen coordinates (+Y down). */
-export function worldToScreen(x: number, y: number, z = HERO_Z): { x: number; y: number } {
+export function worldToScreen(
+  x: number,
+  y: number,
+  z = HERO_Z,
+  view: ViewSize = DEFAULT_VIEW,
+): { x: number; y: number } {
   const s = perspectiveScale(x, y, z);
   return {
-    x: (x * s / SCREEN_BOUND_X) * (SCREEN_W / 2) + SCREEN_W / 2,
-    y: (-y * s / SCREEN_BOUND_Y) * (SCREEN_H / 2) + SCREEN_H / 2,
+    x: (x * s / SCREEN_BOUND_X) * (view.w / 2) + view.w / 2,
+    y: (-y * s / SCREEN_BOUND_Y) * (view.h / 2) + view.h / 2,
   };
 }
 
 /** Inverse of worldToScreen at the gameplay plane. */
-export function screenToWorld(sx: number, sy: number, z = HERO_Z): { x: number; y: number } {
+export function screenToWorld(
+  sx: number,
+  sy: number,
+  z = HERO_Z,
+  view: ViewSize = DEFAULT_VIEW,
+): { x: number; y: number } {
   const s = perspectiveScale(0, 0, z);
   return {
-    x: ((sx - SCREEN_W / 2) * SCREEN_BOUND_X) / (s * (SCREEN_W / 2)),
-    y: -((sy - SCREEN_H / 2) * SCREEN_BOUND_Y) / (s * (SCREEN_H / 2)),
+    x: ((sx - view.w / 2) * SCREEN_BOUND_X) / (s * (view.w / 2)),
+    y: -((sy - view.h / 2) * SCREEN_BOUND_Y) / (s * (view.h / 2)),
   };
 }
 
@@ -37,10 +48,11 @@ export function worldSizeToPixels(
   halfH: number,
   y = 0,
   z = HERO_Z,
+  view: ViewSize = DEFAULT_VIEW,
 ): { w: number; h: number } {
   const s = perspectiveScale(0, y, z);
-  const scaleX = (SCREEN_W / (2 * SCREEN_BOUND_X)) * s;
-  const scaleY = (SCREEN_H / (2 * SCREEN_BOUND_Y)) * s;
+  const scaleX = (view.w / (2 * SCREEN_BOUND_X)) * s;
+  const scaleY = (view.h / (2 * SCREEN_BOUND_Y)) * s;
   return { w: halfW * 2 * scaleX, h: halfH * 2 * scaleY };
 }
 
@@ -63,6 +75,8 @@ export function copyVec3(v: Vec3): Vec3 {
 }
 
 /** World Y for bottom of visible playfield (sea line). */
-export function seaScreenY(): number {
-  return worldToScreen(0, -SCREEN_BOUND_Y).y;
+export function seaScreenY(view: ViewSize = DEFAULT_VIEW): number {
+  return worldToScreen(0, -SCREEN_BOUND_Y, HERO_Z, view).y;
 }
+
+export { SCREEN_W, SCREEN_H };

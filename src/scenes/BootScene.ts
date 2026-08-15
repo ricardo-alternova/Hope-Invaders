@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { ASSETS, pngKey, wavKey } from '../assets';
+import { ASSETS, pngKey, pngPath, wavKey } from '../assets';
+import { COPY } from '../copy';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -7,20 +8,31 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
+    const w = this.scale.width;
+    const h = this.scale.height;
     const bar = this.add.graphics();
     const box = this.add.graphics();
-    box.fillStyle(0x222222, 0.8);
-    box.fillRect(240, 270, 320, 50);
+    const boxW = Math.min(360, w * 0.5);
+    const boxX = (w - boxW) / 2;
+    const boxY = h / 2 - 24;
+    box.fillStyle(0x1a1430, 0.85);
+    box.fillRect(boxX, boxY, boxW, 48);
+    this.add
+      .text(w / 2, boxY - 28, COPY.title, {
+        fontFamily: 'Spectral, serif',
+        fontSize: '22px',
+        color: '#c9a55c',
+      })
+      .setOrigin(0.5);
 
     this.load.on('progress', (value: number) => {
       bar.clear();
-      bar.fillStyle(0x4488ff, 1);
-      bar.fillRect(250, 280, 300 * value, 30);
+      bar.fillStyle(0xc9a55c, 1);
+      bar.fillRect(boxX + 8, boxY + 10, (boxW - 16) * value, 28);
     });
 
     for (const name of ASSETS.png) {
-      const ext = name === 'chrome' ? 'jpg' : 'png';
-      this.load.image(pngKey(name), `assets/png/${name}.${ext}`);
+      this.load.image(pngKey(name), pngPath(name));
     }
 
     for (const name of ASSETS.wav) {

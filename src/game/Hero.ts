@@ -9,10 +9,9 @@ import {
   NUM_HERO_AMMO_TYPES,
   PLAYFIELD_PAD,
   SCORE_STEP,
-  SCREEN_H,
-  SCREEN_W,
 } from '../constants';
 import { clamp, screenToWorld, type Vec3, vec3, worldSizeToPixels, worldToScreen } from '../utils/coords';
+import { DEFAULT_VIEW, type ViewSize } from '../utils/viewport';
 import type { GameContext } from './GameContext';
 import type { PowerUp } from './PowerUps';
 
@@ -44,6 +43,8 @@ export class Hero {
   holdRight = false;
   holdUp = false;
   holdDown = false;
+
+  view: ViewSize = { ...DEFAULT_VIEW };
 
   private ctx!: GameContext;
 
@@ -141,7 +142,7 @@ export class Hero {
 
     this.pos[0] += dx * MOVEMENT_SPEED;
     this.pos[1] += -dy * MOVEMENT_SPEED;
-    this.clampPosition();
+    this.clampToView();
   }
 
   /** Apply held WASD/arrow movement for one simulation frame. */
@@ -152,21 +153,23 @@ export class Hero {
     const speed = KEYBOARD_MOVE_SPEED * state.speedAdj;
     this.pos[0] += this.moveDirX * speed;
     this.pos[1] += this.moveDirY * speed;
-    this.clampPosition();
+    this.clampToView();
   }
 
-  private clampPosition(): void {
-    const screen = worldToScreen(this.pos[0], this.pos[1]);
-    const size = worldSizeToPixels(this.size[0], this.size[1], this.pos[1]);
-    const topLimit = SCREEN_H * PLAYFIELD_PAD.topRatio;
-    const sx = clamp(screen.x, size.w / 2 + PLAYFIELD_PAD.left, SCREEN_W - size.w / 2 - PLAYFIELD_PAD.right);
+  /** Keep the sprite inside the live camera, with the top quarter blocked. */
+  clampToView(w = this.view.w, h = this.view.h): void {
+    this.view = { w, h };
+    const screen = worldToScreen(this.pos[0], this.pos[1], this.pos[2], this.view);
+    const size = worldSizeToPixels(this.size[0], this.size[1], this.pos[1], this.pos[2], this.view);
+    const topLimit = h * PLAYFIELD_PAD.topRatio;
+    const sx = clamp(screen.x, size.w / 2 + PLAYFIELD_PAD.left, w - size.w / 2 - PLAYFIELD_PAD.right);
     const sy = clamp(
       screen.y,
       topLimit + size.h / 2,
-      SCREEN_H - size.h / 2 - PLAYFIELD_PAD.bottom,
+      h - size.h / 2 - PLAYFIELD_PAD.bottom,
     );
     if (sx === screen.x && sy === screen.y) return;
-    const world = screenToWorld(sx, sy);
+    const world = screenToWorld(sx, sy, this.pos[2], this.view);
     this.pos[0] = world.x;
     this.pos[1] = world.y;
   }
@@ -271,7 +274,7 @@ export class Hero {
     this.secondaryMove[1] = vec[1] * f;
     this.pos[0] += vec[0] * f * 2;
     this.pos[1] += vec[1] * f * 2;
-    this.clampPosition();
+    this.clampToView();
     this.doDamage(d);
   }
 
@@ -322,7 +325,7 @@ export class Hero {
 
     this.pos[0] += this.secondaryMove[0] * speedAdj;
     this.pos[1] += this.secondaryMove[1] * speedAdj;
-    this.clampPosition();
+    this.clampToView();
     const s = (1.0 - speedAdj) + speedAdj * 0.7;
     this.secondaryMove[0] *= s;
     this.secondaryMove[1] *= s;

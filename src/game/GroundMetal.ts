@@ -1,22 +1,27 @@
 import { SCROLL_SPEED } from '../constants';
 import type { GameState } from './GameState';
 
-/** Scrolling metal ground segments (ported from GroundMetal.cpp). */
+const DUNGEON_TILES = [
+  ['hopeCenote0', 'hopeCenote1', 'hopeCenote2'],
+  ['hopeWeb0', 'hopeWeb1', 'hopeWeb2'],
+  ['hopeGarden0', 'hopeGarden1', 'hopeGarden2'],
+] as const;
+
+/** Scrolling dungeon ground segments. */
 export class GroundMetal {
   /** Segment center Y in world space. */
   segments: number[] = [];
   readonly size = 21;
-  variation = 0;
+  variation = 1;
   private readonly segmentSpan: number;
 
   constructor() {
     this.segmentSpan = this.size * 2;
-    // Three linked segments like the original rootSeg chain
     this.segments = [this.size * 2, 0, -this.segmentSpan];
   }
 
   setVariation(level: number): void {
-    this.variation = level % 3;
+    this.variation = Math.max(1, level);
   }
 
   update(state: GameState): void {
@@ -25,7 +30,6 @@ export class GroundMetal {
     for (let i = 0; i < this.segments.length; i++) {
       this.segments[i] += dy;
     }
-    // Recycle segments that scroll off the bottom
     for (let i = 0; i < this.segments.length; i++) {
       if (this.segments[i] < -this.segmentSpan) {
         const maxY = Math.max(...this.segments);
@@ -35,11 +39,10 @@ export class GroundMetal {
   }
 
   textureForSegment(index: number): string {
-    const bases = ['gndMetalBase00', 'gndMetalBase01', 'gndMetalBase02'];
-    return bases[(index + this.variation) % 3];
+    const tiles = DUNGEON_TILES[(this.variation - 1) % DUNGEON_TILES.length];
+    return tiles[index % tiles.length];
   }
 
-  /** Pulse value for background tint (from GroundMetal::drawGL). */
   backgroundPulse(frame: number): number {
     const pulse = Math.sin(frame * 0.03);
     return pulse < 0 ? 0 : pulse;

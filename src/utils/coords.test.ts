@@ -32,6 +32,13 @@ describe('coords', () => {
       expect(y).toBeCloseTo(SCREEN_H / 2);
     });
 
+    it('maps world origin to center at 1920×1080', () => {
+      const view = { w: 1920, h: 1080 };
+      const { x, y } = worldToScreen(0, 0, undefined, view);
+      expect(x).toBeCloseTo(960);
+      expect(y).toBeCloseTo(540);
+    });
+
     it('flips Y so positive world Y is above screen center', () => {
       const up = worldToScreen(0, 5);
       const down = worldToScreen(0, -5);

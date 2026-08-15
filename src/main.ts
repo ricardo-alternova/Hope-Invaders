@@ -1,24 +1,26 @@
 import Phaser from 'phaser';
-import { SCREEN_H, SCREEN_W } from './constants';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { MenuScene } from './scenes/MenuScene';
 import { globalKeyboard } from './utils/input';
+import { bootGameSize } from './utils/viewport';
+
+const size = bootGameSize();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: SCREEN_W,
-  height: SCREEN_H,
+  width: size.width,
+  height: size.height,
   parent: 'game-container',
-  backgroundColor: '#000000',
+  backgroundColor: '#0e1430',
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   scene: [BootScene, MenuScene, GameScene],
   render: {
-    antialias: false,
-    pixelArt: true,
+    antialias: true,
+    pixelArt: false,
   },
   audio: {
     disableWebAudio: false,

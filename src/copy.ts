@@ -1,0 +1,17 @@
+export const COPY = {
+  title: 'Hope Invaders',
+  tagline: "Max's village has gone dark. Do not let the shadows reach home.",
+  start: 'ENTER THE DUNGEONS',
+  startHint: 'Click START  ·  Enter  ·  Space',
+  controls: 'WASD / arrows: move  |  Click / Space: fire  |  P: pause',
+  license: 'Project Hope — Lumen against the dark',
+  tip: 'Do not let the shadows reach the village.',
+  gameOver: 'The village goes dark',
+  levelComplete: 'Shard restored',
+  lanternArmed: 'Lantern armed — press ENTER again',
+  paused: 'PAUSED',
+  hopeRestored: 'Hope',
+  ammo: ['Wand', 'Lamp', 'Amu'] as const,
+  hope: 'HOPE',
+  resolve: 'RSV',
+} as const;
