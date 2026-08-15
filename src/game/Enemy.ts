@@ -3,6 +3,7 @@ import {
   ENEMY_SCORES,
   EnemyType,
   GAME_SKILL_BASE,
+  HERO_SHIELDS,
   SCREEN_BOUND_X,
   SCREEN_BOUND_Y,
 } from '../constants';
@@ -29,6 +30,8 @@ export class Enemy {
   preFire = 0;
   randMoveX = 0;
   lastMoveX = 0;
+  lastMoveY = 0;
+  shootVec: Vec3 = [0, -0.2, 0];
   alive = true;
   silentDelete = false;
 
@@ -81,14 +84,15 @@ export class Enemy {
       case EnemyType.Boss00:
         this.baseDamage = this.damage = -10000 * skill;
         this.size = [3.5, 2.275];
-        this.collisionMove = 2.0;
-        this.vel[1] = -0.015;
+        this.collisionMove = 0.05;
+        this.vel[1] = 0.02;
         break;
       case EnemyType.Boss01:
         this.baseDamage = this.damage = -10000 * skill;
         this.size = [2.6, 2.3];
-        this.collisionMove = 2.0;
-        this.vel[1] = -0.015;
+        this.collisionMove = 0.1;
+        this.vel[1] = 0.02;
+        this.age = 600;
         break;
     }
 
@@ -135,8 +139,10 @@ export class Enemy {
         this.updateRayGun(speedAdj, hero);
         break;
       case EnemyType.Boss00:
+        this.updateBoss00(speedAdj, skill, hero);
+        break;
       case EnemyType.Boss01:
-        this.updateBoss(speedAdj, hero);
+        this.updateBoss01(speedAdj, skill, hero);
         break;
     }
 
@@ -230,25 +236,133 @@ export class Enemy {
     }
   }
 
-  private updateBoss(speedAdj: number, hero: Hero): void {
+  private updateBoss00(speedAdj: number, skill: number, hero: Hero): void {
+    const frame = this.ctx?.state.gameFrame ?? 0;
     const diffX = hero.pos[0] - this.pos[0];
     const diffY = hero.pos[1] - this.pos[1];
-    this.pos[0] += Math.sign(diffX) * 0.015 * speedAdj;
-    this.pos[1] += speedAdj * this.vel[1];
-    this.pos[0] += Math.sin(this.age * 0.05) * 0.03 * speedAdj;
+    const ammoSpeed = 0.35 * speedAdj;
+    const p: Vec3 = [this.pos[0], this.pos[1], this.pos[2]];
 
-    if (this.shootInterval < 15) {
-      this.preFire = (15 - this.shootInterval) / 15;
+    this.bossMove(skill, frame);
+
+    if (Math.abs(diffX) < 1.6) {
+      this.ctx?.enemyAmmo.addAmmo(3, [p[0], p[1] - 1.7, p[2]], [0, -0.6, 0]);
+    }
+
+    if (!(this.age % 5)) {
+      this.shootSwap = (this.shootSwap + 1) % 15;
+      if (this.shootSwap < 6) {
+        const v: Vec3 = [0, -0.2, 0];
+        this.ctx?.enemyAmmo.addAmmo(0, [p[0] + 2 + (this.shootSwap % 3) * 0.4, p[1] - 1.9, p[2]], v);
+        this.ctx?.enemyAmmo.addAmmo(0, [p[0] - 2 - (this.shootSwap % 3) * 0.4, p[1] - 1.9, p[2]], v);
+      }
+    }
+
+    if (!((this.age - 1) % 7)) {
+      const dist = Math.abs(diffX) + Math.abs(diffY) || 1;
+      this.shootVec = [(ammoSpeed * diffX) / dist, (ammoSpeed * diffY) / dist, 0];
+    }
+
+    if (!((this.age / 200) % 2)) {
+      if (!((this.age / 100) % 2)) {
+        if (!((this.age / 50) % 2)) {
+          this.ctx?.enemyAmmo.addAmmo(1, [p[0] - 1.1, p[1] - 0.45, p[2]], this.shootVec);
+          this.ctx?.enemyAmmo.addAmmo(1, [p[0] + 1.1, p[1] - 0.45, p[2]], this.shootVec);
+        }
+        this.preFire = (this.age % 100) / 100;
+      } else if (!(this.age % 10)) {
+        const b = hero.pos[1] - (p[1] - 0.45);
+        let a = hero.pos[0] - (p[0] - 1.1);
+        let dist = Math.abs(a) + Math.abs(b) || 1;
+        let sv: Vec3 = [(2 * ammoSpeed * a) / dist, (2 * ammoSpeed * b) / dist, 0];
+        this.ctx?.enemyAmmo.addAmmo(2, [p[0] - 1.1, p[1] - 0.45, p[2]], sv);
+        a = hero.pos[0] - (p[0] + 1.1);
+        dist = Math.abs(a) + Math.abs(b) || 1;
+        sv = [(2 * ammoSpeed * a) / dist, (2 * ammoSpeed * b) / dist, 0];
+        this.ctx?.enemyAmmo.addAmmo(2, [p[0] + 1.1, p[1] - 0.45, p[2]], sv);
+        this.preFire = Math.max(0, this.preFire - 0.4);
+      } else {
+        this.preFire += 0.035;
+      }
     } else {
       this.preFire = 0;
     }
+  }
 
-    if (!this.shootInterval) {
-      this.shootInterval = Math.floor((20 + frand() * 40) / speedAdj);
-      const dist = Math.abs(diffX) + Math.abs(diffY) || 1;
-      const v = 0.25 * speedAdj;
-      this.ctx?.enemyAmmo.addAmmo(3, copyVec3(this.pos), [(v * diffX) / dist, (v * diffY) / dist, 0]);
+  private updateBoss01(_speedAdj: number, skill: number, hero: Hero): void {
+    const frame = this.ctx?.state.gameFrame ?? 0;
+    const diffX = hero.pos[0] - this.pos[0];
+    const p: Vec3 = [this.pos[0], this.pos[1], this.pos[2]];
+
+    this.bossMove01(skill, frame);
+
+    if (Math.abs(diffX) < 5) {
+      this.shootVec = [0, -0.65, 0];
+      this.preFire = (this.age % 6) / 6;
+      if (!(this.age % 6)) {
+        this.shootSwap = this.shootSwap ? 0 : 1;
+        if (this.shootSwap) {
+          this.ctx?.enemyAmmo.addAmmo(0, [p[0] + 0.55, p[1] - 1.7, p[2]], this.shootVec);
+          this.ctx?.enemyAmmo.addAmmo(0, [p[0] + 0.55, p[1] - 1.2, p[2]], this.shootVec);
+        } else {
+          this.ctx?.enemyAmmo.addAmmo(0, [p[0] - 1.22, p[1] - 1.22, p[2]], this.shootVec);
+          this.ctx?.enemyAmmo.addAmmo(0, [p[0] - 1.22, p[1] - 0.72, p[2]], this.shootVec);
+        }
+      }
+    } else if (this.preFire > 0) {
+      this.preFire = Math.max(0, this.preFire - 0.05);
     }
+
+    // Spawn gnats from boss
+    if (!((this.age / 512) % 2) && !((this.age / 64) % 2) && !(this.age % 5)) {
+      this.ctx?.enemyFleet.addEnemy(
+        EnemyType.Gnat,
+        [p[0] + 1.7, p[1] + 1.2, p[2]],
+      );
+    }
+  }
+
+  private bossMove(skill: number, frame: number): void {
+    const hero = this.ctx?.hero;
+    if (!hero) return;
+    const diffX = hero.pos[0] - this.pos[0];
+    let diffY = hero.pos[1] - this.pos[1];
+    const approachDist = 7 * (2 - skill);
+    if (Math.abs(diffY) < approachDist + 0.0 * Math.sin(frame * 0.05)) {
+      diffY = (diffY * diffY) / approachDist;
+    }
+    this.lastMoveX = 0.98 * this.lastMoveX + 0.0005 * skill * (diffX + 5 * Math.sin(this.age * 0.1));
+    this.lastMoveY = 0.9 * this.lastMoveY + 0.001 * skill * diffY;
+    const speedAdj = this.ctx?.state.speedAdj ?? 1;
+    this.pos[0] += speedAdj * this.lastMoveX;
+    this.pos[1] += speedAdj * (this.lastMoveY + this.vel[1]);
+  }
+
+  private bossMove01(skill: number, frame: number): void {
+    const hero = this.ctx?.hero;
+    if (!hero) return;
+    const diffX = hero.pos[0] - this.pos[0];
+    let diffY = hero.pos[1] - this.pos[1];
+    const approachDist = ((this.age + 25) / 512) % 2
+      ? 9 * (2 - skill)
+      : 12 * (2 - skill);
+
+    if (Math.abs(diffY) < approachDist + 2 * Math.sin(frame * 0.05)) {
+      diffY = (diffY * diffY) / approachDist;
+    }
+
+    const sinDrift = 5 * Math.sin(this.age * 0.1);
+    const speedAdj = this.ctx?.state.speedAdj ?? 1;
+
+    if ((this.age / 512) % 2) {
+      this.lastMoveX = 0.98 * this.lastMoveX + 0.001 * skill * (diffX + sinDrift);
+      this.lastMoveY = 0.9 * this.lastMoveY + 0.002 * skill * diffY;
+    } else {
+      this.lastMoveX = 0.9 * this.lastMoveX + 0.0003 * skill * (diffX + sinDrift);
+      this.lastMoveY = 0.9 * this.lastMoveY + 0.001 * skill * diffY;
+    }
+    this.pos[0] += speedAdj * this.lastMoveX;
+    this.pos[1] += speedAdj * (this.lastMoveY + this.vel[1]);
   }
 
   private clampX(): void {
@@ -312,7 +426,24 @@ export class EnemyFleet {
       }
 
       if (!hero.isInvulnerable) {
-        hero.checkEnemyCollision(enemy.pos[0], enemy.pos[1], enemy.size[0], enemy.damage);
+        const diffX = hero.pos[0] - enemy.pos[0];
+        const diffY = hero.pos[1] - enemy.pos[1];
+        const dist = Math.abs(diffX) + Math.abs(diffY);
+        if (dist < enemy.size[0] + hero.size[0]) {
+          let power = -enemy.damage * 0.5;
+          if (power > 35) power = 35;
+          hero.doDamage(power);
+          if (hero.shields > HERO_SHIELDS) {
+            enemy.damage += 70;
+          } else {
+            enemy.damage += 40;
+          }
+          enemy.secondaryMove[0] -= diffX * enemy.collisionMove;
+          enemy.secondaryMove[1] -= diffY * (enemy.collisionMove * 0.5);
+          hero.secondaryMove[0] = diffX * power * 0.03;
+          hero.secondaryMove[1] = diffY * power * 0.03;
+          this.ctx.explosions.addHeroShields(hero.pos);
+        }
       }
 
       survivors.push(enemy);

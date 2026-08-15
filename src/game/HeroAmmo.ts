@@ -50,7 +50,7 @@ export class HeroAmmoSystem {
       if (!a.active) return false;
       a.pos[0] += a.vel[0] * speedAdj;
       a.pos[1] += a.vel[1] * speedAdj;
-      return a.pos[1] <= SCREEN_BOUND_Y;
+      return a.pos[1] <= SCREEN_BOUND_Y + 4;
     });
   }
 

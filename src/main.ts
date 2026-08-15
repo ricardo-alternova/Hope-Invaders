@@ -3,6 +3,7 @@ import { SCREEN_H, SCREEN_W } from './constants';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { MenuScene } from './scenes/MenuScene';
+import { globalKeyboard } from './utils/input';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -22,6 +23,13 @@ const config: Phaser.Types.Core.GameConfig = {
   audio: {
     disableWebAudio: false,
   },
+  input: {
+    keyboard: false,
+    mouse: true,
+    touch: true,
+  },
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+globalKeyboard.install(game);
+(window as Window & { __HOPE_GAME?: Phaser.Game }).__HOPE_GAME = game;

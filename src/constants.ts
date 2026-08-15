@@ -10,15 +10,27 @@ export const NUM_HERO_ITEMS = 1;
 export const DEATH_SPIKES = 7;
 export const DEATH_TIME = 50;
 export const SCORE_STEP = 50000;
+export const HI_SCORE_HIST = 5;
 
 export const SCREEN_W = 800;
 export const SCREEN_H = 600;
 export const SCREEN_BOUND_X = 11.0;
 export const SCREEN_BOUND_Y = 9.0;
 export const MOVEMENT_SPEED = 0.03;
+/** World units per frame at 50 FPS while a WASD/arrow key is held. */
+export const KEYBOARD_MOVE_SPEED = 0.22;
 export const GAME_SKILL_BASE = 0.5;
 export const SCROLL_SPEED = -0.045;
 export const TARGET_FPS = 50;
+/** Brief invulnerability after a hit so overlapping enemies don't melt shields in one frame. */
+export const HERO_HIT_IFRAMES = 12;
+/** Screen-space padding. Sides stay open; the top quarter is off-limits. */
+export const PLAYFIELD_PAD = {
+  left: 6,
+  right: 6,
+  topRatio: 0.25,
+  bottom: 8,
+} as const;
 
 export const GameMode = {
   Menu: 0,

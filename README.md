@@ -13,15 +13,26 @@ npm run dev
 
 Open http://localhost:5173 in your browser.
 
+## Tests
+
+Unit tests cover core game logic (coords, hero, enemies, power-ups, levels, hi-scores):
+
+```bash
+npm run test        # run once
+npm run test:watch  # watch mode
+npm run record      # headless playthrough → recordings/playthrough.mp4
+```
+
 ## Controls
 
 | Input | Action |
 |-------|--------|
-| Mouse move | Move fighter |
+| **Enter** (menu) | Start game |
+| WASD / arrow keys | Move fighter (hold) |
 | Left click / Space | Fire weapons |
-| Right click (double) / Enter | Self-destruct (ejects ammo) |
+| Enter (in-game, twice) | Arm then confirm self-destruct |
+| Double right-click | Self-destruct |
 | 0 (double tap) | Self-destruct |
-| Arrow keys / WASD | Keyboard movement |
 | P | Pause |
 | Esc | Return to menu |
 

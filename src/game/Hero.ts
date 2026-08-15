@@ -1,23 +1,24 @@
 import {
   AMMO_REFILL,
   HERO_DAMAGE,
+  HERO_HIT_IFRAMES,
   HERO_SHIELDS,
   HERO_Z,
+  KEYBOARD_MOVE_SPEED,
   MOVEMENT_SPEED,
   NUM_HERO_AMMO_TYPES,
+  PLAYFIELD_PAD,
   SCORE_STEP,
+  SCREEN_H,
+  SCREEN_W,
 } from '../constants';
-import { clamp, manhattanDist, type Vec3, vec3 } from '../utils/coords';
+import { clamp, screenToWorld, type Vec3, vec3, worldSizeToPixels, worldToScreen } from '../utils/coords';
 import type { GameContext } from './GameContext';
 import type { PowerUp } from './PowerUps';
 
 export class Hero {
   pos: Vec3 = vec3(0, -3, HERO_Z);
   size: [number, number] = [0.7, 0.85];
-  bound: [[number, number], [number, number]] = [
-    [-10, 10],
-    [-7.5, 7.5],
-  ];
   secondaryMove: [number, number] = [0, 0];
 
   damage = HERO_DAMAGE;
@@ -28,6 +29,7 @@ export class Hero {
 
   superBomb = 0;
   dontShow = 0;
+  hurtIFrames = 0;
   currentItemIndex = 0;
   useItemArmed = 0;
 
@@ -38,8 +40,10 @@ export class Hero {
   gunActive = [false, false, false];
   gunFlash = [0, 0, 0];
 
-  keySpeedX = 0;
-  keySpeedY = 0;
+  holdLeft = false;
+  holdRight = false;
+  holdUp = false;
+  holdDown = false;
 
   private ctx!: GameContext;
 
@@ -54,12 +58,14 @@ export class Hero {
   reset(): void {
     this.pos = vec3(0, -3, HERO_Z);
     this.dontShow = 0;
+    this.hurtIFrames = 0;
     this.damage = HERO_DAMAGE;
     this.shields = HERO_SHIELDS;
     this.currentItemIndex = 0;
     this.secondaryMove = [0, 0];
     this.gunTrigger = false;
     this.gunSwap = false;
+    this.clearHeld();
     for (let i = 0; i < NUM_HERO_AMMO_TYPES; i++) {
       this.gunPause[i] = -1;
       this.ammoStock[i] = 0;
@@ -93,6 +99,7 @@ export class Hero {
       this.superBomb = 1;
     }
     this.ctx.audio.play('life_add');
+    this.ctx.explosions.addLife([10.2, 7.4 - this.lives * this.size[1], this.pos[2]]);
     if (fromScore) {
       this.ctx.explosions.addScoreLife(this.pos);
     }
@@ -101,11 +108,31 @@ export class Hero {
   loseLife(): void {
     this.lives--;
     this.ctx.audio.play('life_lose');
+    this.ctx.explosions.addLoseLife([10.2, 7.4 - this.lives * this.size[1], this.pos[2]]);
     if (this.lives < 0) {
       this.damage = 0;
       this.shields = 0;
       this.startDeath();
     }
+  }
+
+  get moveDirX(): number {
+    return (this.holdRight ? 1 : 0) + (this.holdLeft ? -1 : 0);
+  }
+
+  get moveDirY(): number {
+    return (this.holdUp ? 1 : 0) + (this.holdDown ? -1 : 0);
+  }
+
+  setHeld(dir: 'left' | 'right' | 'up' | 'down', held: boolean): void {
+    if (dir === 'left') this.holdLeft = held;
+    if (dir === 'right') this.holdRight = held;
+    if (dir === 'up') this.holdUp = held;
+    if (dir === 'down') this.holdDown = held;
+  }
+
+  clearHeld(): void {
+    this.holdLeft = this.holdRight = this.holdUp = this.holdDown = false;
   }
 
   moveEvent(dx: number, dy: number): void {
@@ -114,23 +141,34 @@ export class Hero {
 
     this.pos[0] += dx * MOVEMENT_SPEED;
     this.pos[1] += -dy * MOVEMENT_SPEED;
-    this.pos[0] = clamp(this.pos[0], this.bound[0][0], this.bound[0][1]);
-    this.pos[1] = clamp(this.pos[1], this.bound[1][0], this.bound[1][1]);
+    this.clampPosition();
   }
 
+  /** Apply held WASD/arrow movement for one simulation frame. */
   updateKeyboard(): void {
-    this.moveEvent(this.keySpeedX, this.keySpeedY);
-    this.keySpeedX *= 0.7;
-    this.keySpeedY *= 0.7;
+    const { state } = this.ctx;
+    if (state.gameMode === 3 || state.gamePause) return;
+
+    const speed = KEYBOARD_MOVE_SPEED * state.speedAdj;
+    this.pos[0] += this.moveDirX * speed;
+    this.pos[1] += this.moveDirY * speed;
+    this.clampPosition();
   }
 
-  keyDown(dirX: number, dirY: number): void {
-    const accel = (n: number) => {
-      const sign = Math.sign(n) || 1;
-      return n + sign * (2.0 + 0.4 * Math.abs(n));
-    };
-    this.keySpeedX = accel(dirX !== 0 ? dirX : this.keySpeedX);
-    this.keySpeedY = accel(dirY !== 0 ? dirY : this.keySpeedY);
+  private clampPosition(): void {
+    const screen = worldToScreen(this.pos[0], this.pos[1]);
+    const size = worldSizeToPixels(this.size[0], this.size[1], this.pos[1]);
+    const topLimit = SCREEN_H * PLAYFIELD_PAD.topRatio;
+    const sx = clamp(screen.x, size.w / 2 + PLAYFIELD_PAD.left, SCREEN_W - size.w / 2 - PLAYFIELD_PAD.right);
+    const sy = clamp(
+      screen.y,
+      topLimit + size.h / 2,
+      SCREEN_H - size.h / 2 - PLAYFIELD_PAD.bottom,
+    );
+    if (sx === screen.x && sy === screen.y) return;
+    const world = screenToWorld(sx, sy);
+    this.pos[0] = world.x;
+    this.pos[1] = world.y;
   }
 
   fireGun(active: boolean): void {
@@ -156,6 +194,7 @@ export class Hero {
 
     if (this.gunPause[0] <= 0) {
       this.gunPause[0] = 5;
+      this.gunFlash[0] = 8;
       heroAmmo.addAmmo(0, [this.pos[0] + 0.3, this.pos[1] + 0.8, this.pos[2]]);
       heroAmmo.addAmmo(0, [this.pos[0] - 0.3, this.pos[1] + 0.8, this.pos[2]]);
       if (this.gunActive[0]) {
@@ -167,6 +206,7 @@ export class Hero {
 
     if (this.gunActive[1] && this.gunPause[1] <= 0) {
       this.gunPause[1] = 25;
+      this.gunFlash[1] = 10;
       heroAmmo.addAmmo(1, [this.pos[0], this.pos[1] + 1.1, this.pos[2]]);
       this.ammoStock[1] -= 1.5;
     }
@@ -174,6 +214,7 @@ export class Hero {
     if (this.gunActive[2] && this.gunPause[2] <= 0) {
       this.gunSwap = !this.gunSwap;
       this.gunPause[2] = 5;
+      this.gunFlash[2] = 8;
       const y = this.pos[1] + 0.4;
       if (this.gunSwap) {
         heroAmmo.addAmmo(2, [this.pos[0] + 0.7, y, this.pos[2]]);
@@ -187,6 +228,9 @@ export class Hero {
       if (this.gunPause[i] > 0) {
         this.gunPause[i] -= speedAdj;
       }
+      if (this.gunFlash[i] > 0) {
+        this.gunFlash[i] -= speedAdj;
+      }
       if (this.ammoStock[i] <= 0) {
         this.gunActive[i] = false;
         this.ammoStock[i] = 0;
@@ -198,6 +242,8 @@ export class Hero {
 
   doDamage(d: number): void {
     if (this.superBomb) return;
+    if (this.hurtIFrames > 0) return;
+    this.hurtIFrames = HERO_HIT_IFRAMES;
 
     if (this.shields > HERO_SHIELDS) {
       this.shields -= d * 0.25;
@@ -225,6 +271,7 @@ export class Hero {
     this.secondaryMove[1] = vec[1] * f;
     this.pos[0] += vec[0] * f * 2;
     this.pos[1] += vec[1] * f * 2;
+    this.clampPosition();
     this.doDamage(d);
   }
 
@@ -275,12 +322,16 @@ export class Hero {
 
     this.pos[0] += this.secondaryMove[0] * speedAdj;
     this.pos[1] += this.secondaryMove[1] * speedAdj;
+    this.clampPosition();
     const s = (1.0 - speedAdj) + speedAdj * 0.7;
     this.secondaryMove[0] *= s;
     this.secondaryMove[1] *= s;
 
     if (this.dontShow > 0) {
       this.dontShow -= speedAdj;
+    }
+    if (this.hurtIFrames > 0) {
+      this.hurtIFrames -= speedAdj;
     }
 
     if (this.shields >= HERO_SHIELDS && this.shields > 500) {
@@ -329,22 +380,7 @@ export class Hero {
     }
   }
 
-  checkEnemyCollision(ex: number, ey: number, esize: number, enemyDamage: number): boolean {
-    const hitDist = esize + this.size[0];
-    if (manhattanDist(this.pos[0], this.pos[1], ex, ey) >= hitDist) {
-      return false;
-    }
-
-    const power = Math.min(35, -enemyDamage * 0.5);
-    const dx = this.pos[0] - ex;
-    const dy = this.pos[1] - ey;
-    this.secondaryMove[0] = dx * power * 0.03;
-    this.secondaryMove[1] = dy * power * 0.03;
-    this.doDamage(-enemyDamage * 0.5);
-    return true;
-  }
-
   get isInvulnerable(): boolean {
-    return this.dontShow > 0 || this.superBomb > 0;
+    return this.dontShow > 0 || this.superBomb > 0 || this.hurtIFrames > 0;
   }
 }
