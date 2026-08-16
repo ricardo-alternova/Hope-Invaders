@@ -2,6 +2,7 @@
   "name": "hope-invaders",
   "private": true,
   "version": "0.1.0",
+  "license": "ClArtistic",
   "type": "module",
   "scripts": {
     "dev": "vite",

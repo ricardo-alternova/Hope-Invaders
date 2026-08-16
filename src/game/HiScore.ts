@@ -7,10 +7,23 @@ export interface HiScoreEntry {
 }
 
 export const HI_SCORE_STORAGE_KEY = 'hope-invaders-hiscores';
+export const PILOT_NAME_MAX = 12;
+const PILOT_NAME_CHAR = /[\w ?\-']/;
 
 export function sanitizePilotName(raw: string): string {
-  const cleaned = raw.replace(/[^\w ?\-']/g, '').trim().slice(0, 12);
+  const cleaned = raw.replace(/[^\w ?\-']/g, '').trim().slice(0, PILOT_NAME_MAX);
   return cleaned || 'Max';
+}
+
+/** Keyboard handling for the game-over name field (Enter submits only once a name is typed). */
+export function applyNameEntryKey(name: string, key: string): { name: string; submit: boolean } {
+  if (key === 'Enter') return { name, submit: name.trim().length > 0 };
+  if (key === 'Escape') return { name, submit: true };
+  if (key === 'Backspace') return { name: name.slice(0, -1), submit: false };
+  if (key.length === 1 && name.length < PILOT_NAME_MAX && PILOT_NAME_CHAR.test(key)) {
+    return { name: name + key, submit: false };
+  }
+  return { name, submit: false };
 }
 
 const DEFAULT_SCORES: HiScoreEntry[] = Array.from({ length: HI_SCORE_HIST }, () => ({

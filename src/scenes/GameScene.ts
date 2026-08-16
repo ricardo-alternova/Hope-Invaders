@@ -16,7 +16,7 @@ import { ExplosionSystem } from '../game/Explosions';
 import { GroundMetal } from '../game/GroundMetal';
 import { createPhaserAudio, GameContext } from '../game/GameContext';
 import { FIXED_DT, GameState } from '../game/GameState';
-import { hiScore, sanitizePilotName } from '../game/HiScore';
+import { applyNameEntryKey, hiScore, PILOT_NAME_MAX, sanitizePilotName } from '../game/HiScore';
 import { Hero } from '../game/Hero';
 import { HeroAmmoSystem } from '../game/HeroAmmo';
 import { LevelSpawner } from '../game/LevelSpawner';
@@ -66,6 +66,7 @@ export class GameScene extends Phaser.Scene {
   private entryButton!: Phaser.GameObjects.Rectangle;
   private entryButtonLabel!: Phaser.GameObjects.Text;
   private nameKeyHandler?: (event: KeyboardEvent) => void;
+  private nameInput: HTMLInputElement | null = null;
   private dimOverlay!: Phaser.GameObjects.Rectangle;
   private motes?: Phaser.GameObjects.Particles.ParticleEmitter;
   private bgBase!: Phaser.GameObjects.TileSprite;
@@ -332,8 +333,11 @@ export class GameScene extends Phaser.Scene {
     focusGameCanvas();
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.scoreEntryOpen) {
+        this.focusNameInput();
+        return;
+      }
       focusGameCanvas();
-      if (this.scoreEntryOpen) return;
       if (pointer.rightButtonDown()) {
         const now = this.time.now;
         if (now - this.lastRightClick < 400) {
@@ -415,9 +419,10 @@ export class GameScene extends Phaser.Scene {
       this.firingSpace = false;
       globalKeyboard.setTextCapture(false);
       if (this.nameKeyHandler) {
-        document.removeEventListener('keydown', this.nameKeyHandler);
+        window.removeEventListener('keydown', this.nameKeyHandler, true);
         this.nameKeyHandler = undefined;
       }
+      this.teardownNameInput();
     });
 
     this.ctx.hero.setHeld('left', globalKeyboard.isDown('ArrowLeft') || globalKeyboard.isDown('KeyA'));
@@ -845,10 +850,6 @@ export class GameScene extends Phaser.Scene {
       this.lifeGhost.setTint(0xffe08a);
       if (this.lifeFxAge <= 0) this.lifeGhost.setVisible(false);
     }
-    if (this.scoreEntryOpen) {
-      const caret = this.hudBlink ? '_' : ' ';
-      this.entryNameText.setText(`${this.entryName}${caret}`);
-    }
 
     if (enemyFleet.enemyWarning > 0) {
       this.hudWarning.setFillStyle(0x4a2c5a, enemyFleet.enemyWarning * 0.85);
@@ -922,9 +923,14 @@ export class GameScene extends Phaser.Scene {
       color: '#fff2c2',
     }).setOrigin(0.5).setDepth(depth + 3).setVisible(false);
     this.entryButton.on('pointerdown', () => this.submitScore());
+    this.entryDim.setInteractive();
+    this.entryPlate.setInteractive();
+    this.entryDim.on('pointerdown', () => this.focusNameInput());
+    this.entryPlate.on('pointerdown', () => this.focusNameInput());
+    this.mountNameInput();
   }
 
-  private scoreEntryObjects(): Phaser.GameObjects.GameObject[] {
+  private scoreEntryObjects(): Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> {
     return [
       this.entryDim,
       this.entryPlate,
@@ -951,6 +957,7 @@ export class GameScene extends Phaser.Scene {
     this.entryHint.setPosition(cx, cy + 56);
     this.entryButton.setPosition(cx, cy + 112);
     this.entryButtonLabel.setPosition(cx, cy + 112);
+    this.layoutNameInput();
   }
 
   private showScoreEntry(): void {
@@ -960,51 +967,115 @@ export class GameScene extends Phaser.Scene {
     this.entryScore.setText(Math.floor(this.ctx.hero.score).toString().padStart(7, '0'));
     this.layoutScoreEntry(this.scale.width, this.scale.height);
     for (const obj of this.scoreEntryObjects()) obj.setVisible(true);
+    this.entryNameText.setVisible(false);
+    if (this.nameInput) {
+      this.nameInput.value = '';
+      this.nameInput.style.display = 'block';
+    }
     globalKeyboard.setTextCapture(true);
     this.ctx.hero.clearHeld();
     this.firingPointer = false;
     this.firingSpace = false;
     this.syncFire();
     this.nameKeyHandler = (event: KeyboardEvent) => this.onNameKey(event);
-    document.addEventListener('keydown', this.nameKeyHandler);
+    window.addEventListener('keydown', this.nameKeyHandler, true);
+    this.focusNameInput();
   }
 
   private hideScoreEntry(): void {
     this.scoreEntryOpen = false;
     for (const obj of this.scoreEntryObjects()) obj.setVisible(false);
+    if (this.nameInput) this.nameInput.style.display = 'none';
     globalKeyboard.setTextCapture(false);
     if (this.nameKeyHandler) {
-      document.removeEventListener('keydown', this.nameKeyHandler);
+      window.removeEventListener('keydown', this.nameKeyHandler, true);
       this.nameKeyHandler = undefined;
     }
   }
 
   private onNameKey(event: KeyboardEvent): void {
     if (!this.scoreEntryOpen) return;
-    if (event.key === 'Enter') {
+    if (event.target instanceof HTMLInputElement) return;
+
+    const next = applyNameEntryKey(this.entryName, event.key);
+    if (next.name !== this.entryName) {
+      event.preventDefault();
+      this.entryName = next.name;
+      if (this.nameInput) this.nameInput.value = next.name;
+    }
+    if (next.submit) {
       event.preventDefault();
       this.submitScore();
-      return;
     }
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      this.submitScore();
-      return;
-    }
-    if (event.key === 'Backspace') {
-      event.preventDefault();
-      this.entryName = this.entryName.slice(0, -1);
-      return;
-    }
-    if (event.key.length === 1 && this.entryName.length < 12 && /[\w ?\-']/.test(event.key)) {
-      event.preventDefault();
-      this.entryName += event.key;
-    }
+  }
+
+  private mountNameInput(): void {
+    if (this.nameInput || typeof document === 'undefined') return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = PILOT_NAME_MAX;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.placeholder = 'Max';
+    input.setAttribute('aria-label', COPY.namePrompt);
+    Object.assign(input.style, {
+      display: 'none',
+      position: 'absolute',
+      zIndex: '30',
+      left: '50%',
+      top: 'calc(50% + 16px)',
+      transform: 'translate(-50%, -50%)',
+      width: '280px',
+      background: 'transparent',
+      border: 'none',
+      borderBottom: '2px solid #c9a55c',
+      color: '#fff2c2',
+      caretColor: '#fff2c2',
+      fontFamily: 'Cormorant Garamond, serif',
+      fontSize: '28px',
+      textAlign: 'center',
+      outline: 'none',
+      padding: '4px 8px',
+    });
+    input.addEventListener('input', () => {
+      this.entryName = input.value.slice(0, PILOT_NAME_MAX);
+    });
+    input.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      const next = applyNameEntryKey(this.entryName, event.key);
+      if (event.key === 'Enter' || event.key === 'Escape') {
+        event.preventDefault();
+        if (next.submit) this.submitScore();
+      }
+    });
+    document.getElementById('game-container')?.appendChild(input);
+    this.nameInput = input;
+  }
+
+  private layoutNameInput(): void {
+    const input = this.nameInput;
+    if (!input) return;
+    const h = this.scale.height || 600;
+    input.style.fontSize = `${Math.max(18, Math.round(28 * (h / 600)))}px`;
+    input.style.width = `${Math.min(320, Math.round(this.scale.width * 0.4))}px`;
+  }
+
+  private focusNameInput(): void {
+    this.time.delayedCall(0, () => {
+      if (!this.scoreEntryOpen) return;
+      this.nameInput?.focus({ preventScroll: true });
+    });
+  }
+
+  private teardownNameInput(): void {
+    this.nameInput?.remove();
+    this.nameInput = null;
   }
 
   private submitScore(): void {
     if (this.scoreSubmitted) return;
     this.scoreSubmitted = true;
+    if (this.nameInput) this.entryName = this.nameInput.value;
     hiScore.submit(Math.floor(this.ctx.hero.score), sanitizePilotName(this.entryName));
     this.hideScoreEntry();
     this.ctx.onGameOver();

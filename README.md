@@ -38,13 +38,10 @@ npm run record      # headless playthrough → recordings/playthrough.mp4
 
 ## License
 
-Game code and graphics: **Clarified Artistic License** (see `COPYING`).
+Hope Invaders is open source under the **Clarified Artistic License** (SPDX: `ClArtistic`) — the same OSI-approved, FSF-free license Chromium B.S.U. uses for code and graphics. See `LICENSE`.
 
-Sound files: **MIT/Expat License** (see `public/assets/wav/license.txt`).
+- Game code, Hope art, and remaining Chromium graphics: Clarified Artistic License
+- Sound files from Chromium B.S.U.: **MIT/Expat** (`public/assets/wav/license.txt`)
 
-Original game by Mark B. Allan and contributors.
-
-## Attribution
-
-Assets sourced from the Chromium B.S.U. open source release:
-https://sourceforge.net/projects/chromium-bsu/
+Chromium B.S.U. by Mark B. Allan and contributors:
+https://chromium-bsu.sourceforge.io/

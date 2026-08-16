@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HI_SCORE_HIST } from '../constants';
-import { HiScore, HI_SCORE_STORAGE_KEY, sanitizePilotName } from './HiScore';
+import { HiScore, HI_SCORE_STORAGE_KEY, applyNameEntryKey, sanitizePilotName } from './HiScore';
 
 function createStorage() {
   const store = new Map<string, string>();
@@ -90,5 +90,11 @@ describe('HiScore', () => {
     expect(sanitizePilotName('  ace!!  ')).toBe('ace');
     expect(sanitizePilotName('')).toBe('Max');
     expect(sanitizePilotName('abcdefghijklmnop')).toBe('abcdefghijkl');
+  });
+
+  it('does not record on Enter until a name is typed', () => {
+    expect(applyNameEntryKey('', 'Enter')).toEqual({ name: '', submit: false });
+    expect(applyNameEntryKey('R', 'i')).toEqual({ name: 'Ri', submit: false });
+    expect(applyNameEntryKey('Rico', 'Enter')).toEqual({ name: 'Rico', submit: true });
   });
 });

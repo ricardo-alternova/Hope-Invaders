@@ -91,7 +91,10 @@ class GlobalKeyboard {
       canvas.setAttribute('tabindex', '0');
       canvas.style.outline = 'none';
 
-      const focusGame = () => canvas.focus({ preventScroll: true });
+      const focusGame = () => {
+        if (this.textCapture) return;
+        canvas.focus({ preventScroll: true });
+      };
       canvas.addEventListener('pointerdown', focusGame);
       canvas.addEventListener('mousedown', focusGame);
 
