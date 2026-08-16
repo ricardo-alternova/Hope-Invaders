@@ -147,21 +147,19 @@ export class ExplosionSystem {
       case ExploType.HeroDamage:
         return 'enemyExplo';
       case ExploType.HeroAmmo00:
-        return 'heroAmmoExplo00';
       case ExploType.HeroAmmo01:
-        return 'heroAmmoExplo01';
       case ExploType.HeroAmmo02:
-        return 'heroAmmoExplo02';
+        return 'glitter';
       case ExploType.HeroShields:
-        return 'heroShields';
+        return 'explo';
       case ExploType.PowerBurst:
         return 'powerUpTex';
       case ExploType.AddLife:
       case ExploType.LoseLife:
       case ExploType.ScoreLife:
-        return 'life';
+        return 'glitter';
       case ExploType.Electric:
-        return 'electric';
+        return 'glitter';
       case ExploType.Glitter:
         return 'glitter';
       default:

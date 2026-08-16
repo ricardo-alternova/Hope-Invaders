@@ -7,22 +7,49 @@ import {
   HERO_DAMAGE,
   HERO_SHIELDS,
   POWERUP_COLORS,
-  PowerUpType,
 } from '../constants';
 import { COPY } from '../copy';
+import { dungeonTextureKeys, FX_AURA_KEY, FX_MIST_KEY, FX_MOTE_KEY } from '../fx/dungeonTiles';
+import { shadePose } from '../fx/shadeAnim';
 import { EnemyAmmoSystem, EnemyFleet } from '../game/Enemy';
 import { ExplosionSystem } from '../game/Explosions';
 import { GroundMetal } from '../game/GroundMetal';
 import { createPhaserAudio, GameContext } from '../game/GameContext';
 import { FIXED_DT, GameState } from '../game/GameState';
-import { hiScore } from '../game/HiScore';
+import { hiScore, sanitizePilotName } from '../game/HiScore';
 import { Hero } from '../game/Hero';
 import { HeroAmmoSystem } from '../game/HeroAmmo';
 import { LevelSpawner } from '../game/LevelSpawner';
 import { PowerUpSystem } from '../game/PowerUps';
-import { seaScreenY, worldSizeToPixels, worldToScreen } from '../utils/coords';
+import { worldSizeToPixels, worldToScreen } from '../utils/coords';
 import { bindSceneKeys, focusGameCanvas, globalKeyboard } from '../utils/input';
 import { viewSize, type ViewSize } from '../utils/viewport';
+
+const HUD_SCALE = 1.65;
+
+function hudPx(n: number): number {
+  return Math.round(n * HUD_SCALE);
+}
+
+function textResolution(): number {
+  if (typeof window === 'undefined') return 2;
+  return Math.max(2, Math.round(window.devicePixelRatio || 1));
+}
+
+function sharpText(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  content: string,
+  style: Phaser.Types.GameObjects.Text.TextStyle,
+): Phaser.GameObjects.Text {
+  const resolution = textResolution();
+  return scene.add.text(x, y, content, {
+    ...style,
+    resolution,
+    padding: { x: 4, y: 2 },
+  }).setResolution(resolution);
+}
 
 export class GameScene extends Phaser.Scene {
   ctx!: GameContext;
@@ -32,6 +59,10 @@ export class GameScene extends Phaser.Scene {
   private firingPointer = false;
   private firingSpace = false;
   private gameOverQueued = false;
+  private scoreEntryOpen = false;
+  private scoreSubmitted = false;
+  private entryName = '';
+  private lifeFxAge = 0;
 
   private hudScore!: Phaser.GameObjects.Text;
   private hudFps!: Phaser.GameObjects.Text;
@@ -43,8 +74,23 @@ export class GameScene extends Phaser.Scene {
   private hudShieldIcon!: Phaser.GameObjects.Text;
   private hudHullIcon!: Phaser.GameObjects.Text;
   private hudLives: Phaser.GameObjects.Image[] = [];
+  private lifeGhost!: Phaser.GameObjects.Image;
+  private lifeBurst?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private entryDim!: Phaser.GameObjects.Rectangle;
+  private entryPlate!: Phaser.GameObjects.Rectangle;
+  private entryTitle!: Phaser.GameObjects.Text;
+  private entryScore!: Phaser.GameObjects.Text;
+  private entryPrompt!: Phaser.GameObjects.Text;
+  private entryNameText!: Phaser.GameObjects.Text;
+  private entryHint!: Phaser.GameObjects.Text;
+  private entryButton!: Phaser.GameObjects.Rectangle;
+  private entryButtonLabel!: Phaser.GameObjects.Text;
+  private nameKeyHandler?: (event: KeyboardEvent) => void;
   private dimOverlay!: Phaser.GameObjects.Rectangle;
   private motes?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private bgBase!: Phaser.GameObjects.TileSprite;
+  private bgFx!: Phaser.GameObjects.TileSprite;
+  private bgMist!: Phaser.GameObjects.TileSprite;
 
   private ground = new GroundMetal();
   private spritePool: Phaser.GameObjects.Image[] = [];
@@ -105,26 +151,29 @@ export class GameScene extends Phaser.Scene {
     this.ctx.onGameOver = () => {
       if (this.gameOverQueued) return;
       this.gameOverQueued = true;
-      this.time.delayedCall(2000, () => this.scene.start('MenuScene'));
+      this.sound.stopAll();
+      this.scene.start('MenuScene');
     };
+
+    this.ctx.onLifeLost = () => this.playLifeLostFx();
 
     const { w, h } = this.view();
 
-    this.hudScore = this.add.text(16, h - 28, '0000000', {
+    this.hudScore = sharpText(this, 16, h - 28, '0000000', {
       fontFamily: 'Spectral, serif',
-      fontSize: '18px',
+      fontSize: `${hudPx(18)}px`,
       color: '#fff2c2',
       stroke: '#0e1430',
-      strokeThickness: 4,
+      strokeThickness: 3,
     }).setDepth(110);
 
-    this.hudFps = this.add.text(w - 16, h - 16, 'FPS 50', {
+    this.hudFps = sharpText(this, w - 16, h - 16, 'FPS 50', {
       fontFamily: 'monospace',
-      fontSize: '11px',
+      fontSize: `${hudPx(11)}px`,
       color: '#8ec6d6',
     }).setOrigin(1, 1).setDepth(110);
 
-    this.hudPause = this.add.text(w / 2, h / 2, COPY.paused, {
+    this.hudPause = sharpText(this, w / 2, h / 2, COPY.paused, {
       fontFamily: 'Cormorant Garamond, serif',
       fontSize: '32px',
       color: '#fff2c2',
@@ -135,28 +184,28 @@ export class GameScene extends Phaser.Scene {
     this.hudWarning = this.add.rectangle(w / 2, h - 8, w, 8, 0x4a2c5a, 0)
       .setDepth(99);
 
-    this.hudMessage = this.add.text(w / 2, 46, '', {
+    this.hudMessage = sharpText(this, w / 2, 46, '', {
       fontFamily: 'Spectral, serif',
-      fontSize: '16px',
+      fontSize: `${hudPx(16)}px`,
       color: '#c9a55c',
       stroke: '#0e1430',
-      strokeThickness: 4,
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(110);
 
     this.hudGraphics = this.add.graphics().setDepth(108);
 
-    const captionStyle = {
+    const captionStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontFamily: 'Spectral, serif',
-      fontSize: '11px',
+      fontSize: `${hudPx(11)}px`,
       color: '#fff2c2',
       stroke: '#0e1430',
-      strokeThickness: 3,
+      strokeThickness: 2,
     };
     this.hudAmmoIcons = COPY.ammo.map((mark) =>
-      this.add.text(0, 0, mark, captionStyle).setOrigin(0.5, 0).setDepth(111),
+      sharpText(this, 0, 0, mark, captionStyle).setOrigin(0.5, 0).setDepth(111),
     );
-    this.hudShieldIcon = this.add.text(0, 0, COPY.hope, captionStyle).setDepth(111);
-    this.hudHullIcon = this.add.text(0, 0, COPY.resolve, captionStyle).setDepth(111);
+    this.hudShieldIcon = sharpText(this, 0, 0, COPY.hope, captionStyle).setDepth(111);
+    this.hudHullIcon = sharpText(this, 0, 0, COPY.resolve, captionStyle).setDepth(111);
 
     this.hudLives = [];
     for (let i = 0; i < 10; i++) {
@@ -164,26 +213,41 @@ export class GameScene extends Phaser.Scene {
         this.add.image(0, 0, pngKey('life')).setDepth(112).setVisible(false),
       );
     }
+    this.lifeGhost = this.add.image(0, 0, pngKey('life')).setDepth(114).setVisible(false);
+    if (this.textures.exists(pngKey('glitter'))) {
+      this.lifeBurst = this.add.particles(0, 0, pngKey('glitter'), {
+        lifespan: 650,
+        speed: { min: 36, max: 110 },
+        gravityY: 40,
+        scale: { start: 0.28, end: 0.04 },
+        alpha: { start: 0.95, end: 0 },
+        emitting: false,
+        blendMode: Phaser.BlendModes.ADD,
+      });
+      this.lifeBurst.setDepth(113);
+    }
+    this.createScoreEntry();
 
-    this.dimOverlay = this.add.rectangle(w / 2, h / 2, w, h, 0x0e1430, 0.28)
+    this.dimOverlay = this.add.rectangle(w / 2, h / 2, w, h, 0x0e1430, 0.1)
       .setDepth(2);
+
+    this.createBackdrop(w, h);
 
     this.darkenLeft = this.add.image(0, 0, pngKey('shields')).setDepth(95).setAlpha(0.35);
     this.darkenRight = this.add.image(0, 0, pngKey('shields')).setDepth(95).setAlpha(0.35);
 
-    if (this.textures.exists(pngKey('glitter'))) {
-      this.motes = this.add.particles(0, 0, pngKey('glitter'), {
+    if (this.textures.exists(FX_MOTE_KEY)) {
+      this.motes = this.add.particles(0, 0, FX_MOTE_KEY, {
         x: { min: 0, max: w },
         y: h + 8,
-        lifespan: 2800,
-        speedY: { min: -55, max: -18 },
-        speedX: { min: -8, max: 8 },
-        scale: { start: 0.18, end: 0.02 },
-        alpha: { start: 0.35, end: 0 },
+        lifespan: 3200,
+        speedY: { min: -42, max: -12 },
+        speedX: { min: -10, max: 10 },
+        scale: { start: 0.9, end: 0.15 },
+        alpha: { start: 0.45, end: 0 },
         quantity: 1,
-        frequency: 140,
+        frequency: 160,
         blendMode: Phaser.BlendModes.ADD,
-        tint: 0xffe08a,
       });
       this.motes.setDepth(3);
     }
@@ -207,14 +271,53 @@ export class GameScene extends Phaser.Scene {
   }
 
   private layoutHud(w: number, h: number): void {
-    this.hudScore.setPosition(16, h - 28);
-    this.hudFps.setPosition(w - 16, h - 16);
-    this.hudPause.setPosition(w / 2, h / 2);
-    this.hudWarning.setPosition(w / 2, h - 8);
-    this.hudWarning.setSize(w, 8);
-    this.hudMessage.setPosition(w / 2, Math.max(46, h * 0.07));
-    this.dimOverlay.setPosition(w / 2, h / 2);
+    this.hudScore.setPosition(hudPx(16), h - hudPx(28));
+    this.hudFps.setPosition(w - hudPx(16), h - hudPx(16));
+    this.hudPause.setPosition(Math.round(w / 2), Math.round(h / 2));
+    this.hudWarning.setPosition(Math.round(w / 2), h - hudPx(8));
+    this.hudWarning.setSize(w, hudPx(8));
+    this.hudMessage.setPosition(Math.round(w / 2), Math.max(hudPx(46), Math.round(h * 0.07)));
+    this.dimOverlay.setPosition(Math.round(w / 2), Math.round(h / 2));
     this.dimOverlay.setSize(w, h);
+    this.layoutScoreEntry(w, h);
+    this.layoutBackdrop(w, h);
+  }
+
+  private createBackdrop(w: number, h: number): void {
+    const keys = dungeonTextureKeys('cenote');
+    this.bgBase = this.add.tileSprite(0, 0, w, h, keys.base).setOrigin(0, 0).setDepth(0);
+    this.bgFx = this.add.tileSprite(0, 0, w, h, keys.fx)
+      .setOrigin(0, 0)
+      .setDepth(1)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.28);
+    this.bgMist = this.add.tileSprite(0, h - 72, w, 72, FX_MIST_KEY)
+      .setOrigin(0, 0)
+      .setDepth(2);
+    this.applyDungeonBackdrop();
+  }
+
+  private applyDungeonBackdrop(): void {
+    const keys = dungeonTextureKeys(this.ground.dungeon());
+    this.bgBase.setTexture(keys.base);
+    this.bgFx.setTexture(keys.fx);
+  }
+
+  private layoutBackdrop(w: number, h: number): void {
+    this.bgBase.setSize(w, h);
+    this.bgFx.setSize(w, h);
+    this.bgMist.setPosition(0, h - 72);
+    this.bgMist.setSize(w, 72);
+  }
+
+  private updateBackdrop(): void {
+    const scroll = this.ground.pixelScroll;
+    const pulse = this.ground.backgroundPulse(this.ctx.state.gameFrame);
+    this.bgBase.tilePositionY = scroll;
+    this.bgFx.tilePositionY = scroll * 0.62;
+    this.bgFx.tilePositionX = Math.sin(this.ctx.state.gameFrame * 0.012) * 18;
+    this.bgFx.setAlpha(0.2 + pulse * 0.18);
+    this.bgMist.tilePositionX = scroll * 0.25;
   }
 
   private startNewGame(): void {
@@ -229,7 +332,13 @@ export class GameScene extends Phaser.Scene {
     levelSpawner.reset();
     levelSpawner.loadLevel();
     this.ground.setVariation(state.gameLevel);
+    this.applyDungeonBackdrop();
     this.gameOverQueued = false;
+    this.scoreEntryOpen = false;
+    this.scoreSubmitted = false;
+    this.entryName = '';
+    this.hideScoreEntry();
+    globalKeyboard.setTextCapture(false);
     this.firingPointer = false;
     this.firingSpace = false;
     this.tipAge = 0;
@@ -244,6 +353,7 @@ export class GameScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       focusGameCanvas();
+      if (this.scoreEntryOpen) return;
       if (pointer.rightButtonDown()) {
         const now = this.time.now;
         if (now - this.lastRightClick < 400) {
@@ -275,14 +385,20 @@ export class GameScene extends Phaser.Scene {
 
     this.unbindKeys = bindSceneKeys([
       globalKeyboard.onKeyDown('KeyP', () => {
+        if (this.scoreEntryOpen) return;
         this.ctx.state.gamePause = !this.ctx.state.gamePause;
         this.hudPause.setVisible(this.ctx.state.gamePause);
       }),
       globalKeyboard.onKeyDown('Escape', () => {
+        if (this.scoreEntryOpen) {
+          this.submitScore();
+          return;
+        }
         this.sound.stopAll();
         this.scene.start('MenuScene');
       }),
       globalKeyboard.onKeyDown('Space', () => {
+        if (this.scoreEntryOpen) return;
         this.firingSpace = true;
         this.syncFire();
       }),
@@ -291,6 +407,7 @@ export class GameScene extends Phaser.Scene {
         this.syncFire();
       }),
       globalKeyboard.onKeyDown('Enter', () => {
+        if (this.scoreEntryOpen) return;
         const hero = this.ctx.hero;
         const wasArmed = hero.useItemArmed > 0;
         hero.useItem();
@@ -324,6 +441,11 @@ export class GameScene extends Phaser.Scene {
       this.ctx.hero.clearHeld();
       this.firingPointer = false;
       this.firingSpace = false;
+      globalKeyboard.setTextCapture(false);
+      if (this.nameKeyHandler) {
+        document.removeEventListener('keydown', this.nameKeyHandler);
+        this.nameKeyHandler = undefined;
+      }
     });
 
     this.ctx.hero.setHeld('left', globalKeyboard.isDown('ArrowLeft') || globalKeyboard.isDown('KeyA'));
@@ -353,12 +475,9 @@ export class GameScene extends Phaser.Scene {
     const { state, hero, heroAmmo, enemyFleet, enemyAmmo, powerUps, explosions, levelSpawner } = this.ctx;
 
     if (state.gameMode === GameMode.HeroDead) {
-      state.heroDeath--;
-      if (state.heroDeath === 49 && hiScore.isHiScore(hero.score)) {
-        hiScore.submit(Math.floor(hero.score));
-      }
-      if (state.heroDeath <= 0) {
-        this.ctx.onGameOver();
+      if (state.heroDeath > 0) state.heroDeath--;
+      if (state.heroDeath <= 0 && !this.scoreEntryOpen && !this.scoreSubmitted) {
+        this.showScoreEntry();
       }
       explosions.update();
       return;
@@ -378,6 +497,7 @@ export class GameScene extends Phaser.Scene {
         levelSpawner.reset();
         levelSpawner.loadLevel();
         this.ground.setVariation(state.gameLevel);
+        this.applyDungeonBackdrop();
         state.gameMode = GameMode.Game;
         this.hudMessage.setText(`Level ${state.gameLevel}`);
         const { w, h } = this.view();
@@ -421,7 +541,7 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    this.drawGround();
+    this.updateBackdrop();
     this.drawDarkenPanels();
     this.drawEnemies();
     this.drawPowerUps();
@@ -490,37 +610,25 @@ export class GameScene extends Phaser.Scene {
     this.darkenRight.setFlipX(true);
   }
 
-  private drawGround(): void {
-    const view = this.view();
-    const half = this.ground.size;
-    for (let i = 0; i < this.ground.segments.length; i++) {
-      const segY = this.ground.segments[i];
-      const tex = pngKey(this.ground.textureForSegment(i));
-      const screen = worldToScreen(0, segY, undefined, view);
-      const size = worldSizeToPixels(half, half, segY, undefined, view);
-      const sprite = this.getSprite(tex, 0);
-      sprite.setPosition(view.w / 2, screen.y);
-      sprite.setDisplaySize(view.w, size.h + 8);
-      sprite.setAlpha(0.72);
-    }
-
-    const seaY = seaScreenY(view);
-    const sea = this.getSprite(pngKey('gndBaseSea'), 1);
-    sea.setPosition(view.w / 2, seaY + 20);
-    sea.setDisplaySize(view.w, 50);
-  }
-
   private drawHero(): void {
     const { hero } = this.ctx;
     if (hero.dontShow > 0 && hero.dontShow > 100) return;
     const view = this.view();
 
-    let tex = pngKey('hero');
-    if (hero.shields > HERO_SHIELDS) tex = pngKey('heroSuper');
-    else if (hero.shields > 0 && hero.damage > HERO_DAMAGE + 100) tex = pngKey('heroShields');
+    if (hero.shields > HERO_SHIELDS) {
+      const aura = this.placeSprite(FX_AURA_KEY, hero.pos[0], hero.pos[1], hero.size[0] * 1.85, hero.size[1] * 1.85, 19);
+      aura.setBlendMode(Phaser.BlendModes.ADD);
+      aura.setTint(0xdc2834);
+      aura.setAlpha(0.7);
+    } else if (hero.shields > 0 && hero.damage > HERO_DAMAGE + 100) {
+      const aura = this.placeSprite(FX_AURA_KEY, hero.pos[0], hero.pos[1], hero.size[0] * 1.7, hero.size[1] * 1.7, 19);
+      aura.setBlendMode(Phaser.BlendModes.ADD);
+      aura.setTint(0x8ec6d6);
+      aura.setAlpha(0.65);
+    }
 
     const alpha = hero.dontShow > 0 ? (Math.floor(hero.dontShow) % 4 < 2 ? 0.4 : 1) : 1;
-    const sprite = this.placeSprite(tex, hero.pos[0], hero.pos[1], hero.size[0], hero.size[1], 20);
+    const sprite = this.placeSprite(pngKey('hero'), hero.pos[0], hero.pos[1], hero.size[0], hero.size[1], 20);
     sprite.setAlpha(alpha);
 
     const flashTex = [pngKey('heroAmmoFlash00'), pngKey('heroAmmoFlash01'), pngKey('heroAmmoFlash02')];
@@ -564,17 +672,14 @@ export class GameScene extends Phaser.Scene {
     const view = this.view();
     for (const enemy of this.ctx.enemyFleet.enemies) {
       const tex = pngKey(`enemy0${enemy.type}`);
-      this.placeSprite(tex, enemy.pos[0], enemy.pos[1], enemy.size[0], enemy.size[1], 15);
-
-      if (enemy.type === EnemyType.Omni) {
-        const overlay = this.getSprite(pngKey('enemy01-rot'), 16);
-        const pos = worldToScreen(enemy.pos[0], enemy.pos[1], enemy.pos[2], view);
-        const size = worldSizeToPixels(enemy.size[0], enemy.size[1], enemy.pos[1], undefined, view);
-        overlay.setPosition(pos.x, pos.y);
-        overlay.setDisplaySize(size.w, size.h);
-        overlay.setTint(0xc9a55c);
-        overlay.setRotation(-enemy.age * 8 * (Math.PI / 180));
-      }
+      const pose = shadePose(enemy.type, enemy.age, enemy.id);
+      const sprite = this.getSprite(tex, 15);
+      sprite.setOrigin(0.5, pose.originY);
+      const pos = worldToScreen(enemy.pos[0], enemy.pos[1], enemy.pos[2], view);
+      const size = worldSizeToPixels(enemy.size[0], enemy.size[1], enemy.pos[1], undefined, view);
+      sprite.setPosition(pos.x, pos.y + pose.bobY);
+      sprite.setDisplaySize(size.w * pose.scaleX, size.h * pose.scaleY);
+      sprite.setRotation(pose.rot);
 
       if (enemy.preFire > 0) {
         const warnTex =
@@ -620,8 +725,19 @@ export class GameScene extends Phaser.Scene {
     ];
 
     for (const shot of this.ctx.enemyAmmo.shots_list) {
-      const sprite = this.placeSprite(texMap[shot.type] ?? texMap[0], shot.pos[0], shot.pos[1], 0.12, 0.5, 17);
-      sprite.setTint(0x6b3d7a);
+      const sprite = this.placeSprite(
+        texMap[shot.type] ?? texMap[0],
+        shot.pos[0],
+        shot.pos[1],
+        0.28,
+        0.72,
+        17,
+      );
+      sprite.setTint(0xe4b4f2);
+      sprite.setBlendMode(Phaser.BlendModes.ADD);
+      if (shot.vel[0] !== 0 || shot.vel[1] !== 0) {
+        sprite.setRotation(Math.atan2(shot.vel[0], -shot.vel[1]));
+      }
     }
   }
 
@@ -634,11 +750,7 @@ export class GameScene extends Phaser.Scene {
         Math.floor(color[2] * 255),
       );
 
-      let overlay = pngKey('powerUpShield');
-      if (pwr.type >= PowerUpType.HeroAmmo00) overlay = pngKey('powerUpAmmo');
-
-      this.placeSprite(pngKey('powerUpTex'), pwr.pos[0], pwr.pos[1], 0.6, 0.6, 12);
-      this.placeSprite(overlay, pwr.pos[0], pwr.pos[1], 0.6, 0.6, 13, tint);
+      this.placeSprite(pngKey('powerUpTex'), pwr.pos[0], pwr.pos[1], 0.45, 0.55, 12, tint);
     }
   }
 
@@ -670,7 +782,7 @@ export class GameScene extends Phaser.Scene {
 
     this.hudScore.setText(Math.floor(hero.score).toString().padStart(7, '0'));
 
-    if (state.gameMode === GameMode.HeroDead) {
+    if (state.gameMode === GameMode.HeroDead && !this.scoreEntryOpen) {
       this.hudMessage.setAlpha(1);
       this.hudMessage.setText(COPY.gameOver);
     } else if (state.gameMode === GameMode.LevelOver) {
@@ -685,54 +797,85 @@ export class GameScene extends Phaser.Scene {
     }
 
     g.fillStyle(0x0e1430, 0.62);
-    g.fillRect(6, 6, 470, 26);
+    const pad = hudPx(6);
+    const barW = hudPx(48);
+    const barH = hudPx(9);
+    const ammoLabel = hudPx(30);
+    const hopeLabel = hudPx(42);
+    const hullLabel = hudPx(28);
+    const gap = hudPx(8);
+    const trayH = hudPx(26);
+    const trayW =
+      3 * (ammoLabel + barW + gap) + (hopeLabel + barW + gap) + (hullLabel + barW) + hudPx(12);
+    g.fillRect(pad, pad, trayW, trayH);
 
     const ammoColors = [0xc9a55c, 0x8ec6d6, 0x8a5a9a];
-    const barW = 48;
-    const barH = 9;
-    let x = 10;
-    const iconY = 8;
-    const barY = 14;
+    let x = hudPx(10);
+    const iconY = hudPx(8);
+    const barY = hudPx(14);
     for (let i = 0; i < 3; i++) {
-      this.hudAmmoIcons[i].setPosition(x + 14, iconY);
+      this.hudAmmoIcons[i].setPosition(Math.round(x + ammoLabel / 2), iconY);
       g.fillStyle(0x222222, 0.95);
-      g.fillRect(x + 30, barY, barW, barH);
+      g.fillRect(x + ammoLabel, barY, barW, barH);
       const fill = (hero.ammoStock[i] / AMMO_REFILL) * barW;
       if (fill > 0) {
         g.fillStyle(ammoColors[i], 1);
-        g.fillRect(x + 30, barY, fill, barH);
+        g.fillRect(x + ammoLabel, barY, fill, barH);
       }
-      x += 30 + barW + 8;
+      x += ammoLabel + barW + gap;
     }
 
     const shieldPct = Math.max(0, Math.min(1, hero.shields / HERO_SHIELDS));
-    this.hudShieldIcon.setPosition(x, 10);
+    this.hudShieldIcon.setPosition(Math.round(x), hudPx(10));
     g.fillStyle(0x111111, 0.95);
-    g.fillRect(x + 42, barY, barW, barH);
+    g.fillRect(x + hopeLabel, barY, barW, barH);
     g.fillStyle(hero.shields > HERO_SHIELDS ? 0xc9a55c : 0x8ec6d6, 1);
-    g.fillRect(x + 42, barY, barW * shieldPct, barH);
-    x += 42 + barW + 8;
+    g.fillRect(x + hopeLabel, barY, barW * shieldPct, barH);
+    x += hopeLabel + barW + gap;
 
     const hullPct = Math.max(0, Math.min(1, 1 - (hero.damage - HERO_DAMAGE) / -HERO_DAMAGE));
-    this.hudHullIcon.setPosition(x, 10);
+    this.hudHullIcon.setPosition(Math.round(x), hudPx(10));
     g.fillStyle(0x111111, 0.95);
-    g.fillRect(x + 28, barY, barW, barH);
+    g.fillRect(x + hullLabel, barY, barW, barH);
     g.fillStyle(hullPct > 0.35 ? 0xc9a55c : 0x8a5a9a, 1);
-    g.fillRect(x + 28, barY, barW * hullPct, barH);
+    g.fillRect(x + hullLabel, barY, barW * hullPct, barH);
 
     const lifeCount = Math.max(0, hero.lives + 1);
+    const lifeW = hudPx(18);
+    const lifeH = hudPx(20);
+    const lifeGap = hudPx(22);
+    const lifeRight = hudPx(28);
+    const lifeY = hudPx(22);
     g.fillStyle(0x0e1430, 0.62);
-    g.fillRect(w - 18 - lifeCount * 22, 8, lifeCount * 22 + 10, 28);
+    g.fillRect(
+      w - hudPx(18) - Math.max(lifeCount, 1) * lifeGap,
+      pad,
+      Math.max(lifeCount, 1) * lifeGap + hudPx(10),
+      hudPx(28),
+    );
     for (let i = 0; i < this.hudLives.length; i++) {
       const life = this.hudLives[i];
       if (i < lifeCount) {
         life.setVisible(true);
-        life.setPosition(w - 28 - i * 22, 22);
-        life.setDisplaySize(18, 20);
+        life.setPosition(Math.round(w - lifeRight - i * lifeGap), lifeY);
+        life.setDisplaySize(lifeW, lifeH);
         life.setAlpha(i === 0 && this.hudBlink ? 0.55 : 1);
       } else {
         life.setVisible(false);
       }
+    }
+    if (this.lifeFxAge > 0) {
+      this.lifeFxAge--;
+      const t = 1 - this.lifeFxAge / 40;
+      this.lifeGhost.setVisible(true);
+      this.lifeGhost.setDisplaySize(lifeW * (1 + t * 0.8), lifeH * (1 + t * 0.8));
+      this.lifeGhost.setAlpha(1 - t);
+      this.lifeGhost.setTint(0xffe08a);
+      if (this.lifeFxAge <= 0) this.lifeGhost.setVisible(false);
+    }
+    if (this.scoreEntryOpen) {
+      const caret = this.hudBlink ? '_' : ' ';
+      this.entryNameText.setText(`${this.entryName}${caret}`);
     }
 
     if (enemyFleet.enemyWarning > 0) {
@@ -746,5 +889,152 @@ export class GameScene extends Phaser.Scene {
       this.placeSprite(pngKey('useItem00'), hero.pos[0], hero.pos[1] - 1.2, 0.4, 0.4, 22);
       this.placeSprite(pngKey('useFocus'), hero.pos[0], hero.pos[1] - 1.2, 0.5, 0.5, 23);
     }
+  }
+
+  private playLifeLostFx(): void {
+    const { w } = this.view();
+    const lostIndex = Math.max(0, this.ctx.hero.lives + 1);
+    const x = Math.round(w - hudPx(28) - lostIndex * hudPx(22));
+    const y = hudPx(22);
+    this.lifeGhost.setPosition(x, y);
+    this.lifeGhost.setDisplaySize(hudPx(18), hudPx(20));
+    this.lifeGhost.setAlpha(1);
+    this.lifeGhost.setTint(0xffe08a);
+    this.lifeGhost.setVisible(true);
+    this.lifeFxAge = 40;
+    this.lifeBurst?.explode(16, x, y);
+  }
+
+  private createScoreEntry(): void {
+    const depth = 200;
+    this.entryDim = this.add.rectangle(0, 0, 100, 100, 0x0e1430, 0.72).setDepth(depth).setVisible(false);
+    this.entryPlate = this.add.rectangle(0, 0, 420, 320, 0x120a1c, 0.94)
+      .setStrokeStyle(2, 0xc9a55c)
+      .setDepth(depth + 1)
+      .setVisible(false);
+    const titleStyle = {
+      fontFamily: 'Cormorant Garamond, serif',
+      fontSize: '36px',
+      color: '#fff2c2',
+      align: 'center',
+    };
+    this.entryTitle = sharpText(this, 0, 0, COPY.gameOver, titleStyle).setOrigin(0.5).setDepth(depth + 2).setVisible(false);
+    this.entryScore = sharpText(this, 0, 0, '', {
+      fontFamily: 'Spectral, serif',
+      fontSize: '28px',
+      color: '#8ec6d6',
+    }).setOrigin(0.5).setDepth(depth + 2).setVisible(false);
+    this.entryPrompt = sharpText(this, 0, 0, COPY.namePrompt, {
+      fontFamily: 'Spectral, serif',
+      fontSize: '16px',
+      color: '#c9a55c',
+    }).setOrigin(0.5).setDepth(depth + 2).setVisible(false);
+    this.entryNameText = sharpText(this, 0, 0, '', {
+      fontFamily: 'Cormorant Garamond, serif',
+      fontSize: '28px',
+      color: '#fff2c2',
+    }).setOrigin(0.5).setDepth(depth + 2).setVisible(false);
+    this.entryHint = sharpText(this, 0, 0, COPY.nameHint, {
+      fontFamily: 'Spectral, serif',
+      fontSize: '14px',
+      color: '#8ec6d6',
+    }).setOrigin(0.5).setDepth(depth + 2).setVisible(false);
+    this.entryButton = this.add.rectangle(0, 0, 240, 48, 0x4a2c5a, 0.96)
+      .setStrokeStyle(2, 0xc9a55c)
+      .setDepth(depth + 2)
+      .setVisible(false)
+      .setInteractive({ useHandCursor: true });
+    this.entryButtonLabel = sharpText(this, 0, 0, COPY.recordHope, {
+      fontFamily: 'Cormorant Garamond, serif',
+      fontSize: '20px',
+      color: '#fff2c2',
+    }).setOrigin(0.5).setDepth(depth + 3).setVisible(false);
+    this.entryButton.on('pointerdown', () => this.submitScore());
+  }
+
+  private scoreEntryObjects(): Phaser.GameObjects.GameObject[] {
+    return [
+      this.entryDim,
+      this.entryPlate,
+      this.entryTitle,
+      this.entryScore,
+      this.entryPrompt,
+      this.entryNameText,
+      this.entryHint,
+      this.entryButton,
+      this.entryButtonLabel,
+    ];
+  }
+
+  private layoutScoreEntry(w: number, h: number): void {
+    const cx = w / 2;
+    const cy = h / 2;
+    this.entryDim.setPosition(cx, cy);
+    this.entryDim.setSize(w, h);
+    this.entryPlate.setPosition(cx, cy);
+    this.entryTitle.setPosition(cx, cy - 120);
+    this.entryScore.setPosition(cx, cy - 70);
+    this.entryPrompt.setPosition(cx, cy - 24);
+    this.entryNameText.setPosition(cx, cy + 16);
+    this.entryHint.setPosition(cx, cy + 56);
+    this.entryButton.setPosition(cx, cy + 112);
+    this.entryButtonLabel.setPosition(cx, cy + 112);
+  }
+
+  private showScoreEntry(): void {
+    this.scoreEntryOpen = true;
+    this.entryName = '';
+    this.hudMessage.setAlpha(0);
+    this.entryScore.setText(Math.floor(this.ctx.hero.score).toString().padStart(7, '0'));
+    this.layoutScoreEntry(this.scale.width, this.scale.height);
+    for (const obj of this.scoreEntryObjects()) obj.setVisible(true);
+    globalKeyboard.setTextCapture(true);
+    this.ctx.hero.clearHeld();
+    this.firingPointer = false;
+    this.firingSpace = false;
+    this.syncFire();
+    this.nameKeyHandler = (event: KeyboardEvent) => this.onNameKey(event);
+    document.addEventListener('keydown', this.nameKeyHandler);
+  }
+
+  private hideScoreEntry(): void {
+    this.scoreEntryOpen = false;
+    for (const obj of this.scoreEntryObjects()) obj.setVisible(false);
+    globalKeyboard.setTextCapture(false);
+    if (this.nameKeyHandler) {
+      document.removeEventListener('keydown', this.nameKeyHandler);
+      this.nameKeyHandler = undefined;
+    }
+  }
+
+  private onNameKey(event: KeyboardEvent): void {
+    if (!this.scoreEntryOpen) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.submitScore();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.submitScore();
+      return;
+    }
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      this.entryName = this.entryName.slice(0, -1);
+      return;
+    }
+    if (event.key.length === 1 && this.entryName.length < 12 && /[\w ?\-']/.test(event.key)) {
+      event.preventDefault();
+      this.entryName += event.key;
+    }
+  }
+
+  private submitScore(): void {
+    if (this.scoreSubmitted) return;
+    this.scoreSubmitted = true;
+    hiScore.submit(Math.floor(this.ctx.hero.score), sanitizePilotName(this.entryName));
+    this.hideScoreEntry();
+    this.ctx.onGameOver();
   }
 }

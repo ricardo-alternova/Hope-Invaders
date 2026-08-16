@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ASSETS, pngKey, pngPath, wavKey } from '../assets';
 import { COPY } from '../copy';
+import { generateDungeonTextures } from '../fx/dungeonTiles';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -41,6 +42,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    generateDungeonTextures(this);
     this.scene.start('MenuScene');
   }
 }

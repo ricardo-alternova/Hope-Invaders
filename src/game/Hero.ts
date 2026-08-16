@@ -108,13 +108,17 @@ export class Hero {
 
   loseLife(): void {
     this.lives--;
-    this.ctx.audio.play('life_lose');
-    this.ctx.explosions.addLoseLife([10.2, 7.4 - this.lives * this.size[1], this.pos[2]]);
+    this.noteLifeLost();
     if (this.lives < 0) {
       this.damage = 0;
       this.shields = 0;
       this.startDeath();
     }
+  }
+
+  private noteLifeLost(): void {
+    this.ctx.audio.play('life_lose');
+    this.ctx.onLifeLost();
   }
 
   get moveDirX(): number {
@@ -263,6 +267,7 @@ export class Hero {
     if (this.damage > 0) {
       this.damage = 0;
       this.lives--;
+      this.noteLifeLost();
       this.startDeath();
     }
   }
@@ -302,6 +307,7 @@ export class Hero {
       this.damage = 0;
       this.shields = 0;
       this.lives--;
+      this.noteLifeLost();
       this.startDeath();
     }
   }

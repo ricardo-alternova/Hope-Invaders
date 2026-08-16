@@ -93,11 +93,16 @@ describe('Hero', () => {
     it('triggers death when damage crosses zero', () => {
       const c = ctx();
       const { hero } = c;
+      let lost = 0;
+      c.onLifeLost = () => {
+        lost++;
+      };
       hero.newGame();
       hero.shields = 0;
       hero.damage = -10;
       hero.doDamage(20);
       expect(hero.lives).toBe(3);
+      expect(lost).toBe(1);
       expect(hero.superBomb).toBeGreaterThan(0);
       expect(hero.dontShow).toBeGreaterThan(0);
     });

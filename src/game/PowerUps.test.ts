@@ -47,6 +47,17 @@ describe('PowerUpSystem', () => {
     expect(ctx.hero.score).toBe(2500);
   });
 
+  it('falls straight down with no wobble', () => {
+    const ctx = setup();
+    const pwr = ctx.powerUps.create(PowerUpType.Shields, vec3(3, 5, 25));
+    ctx.powerUps.addPowerUp(pwr);
+    const x = pwr.pos[0];
+    ctx.powerUps.update();
+    ctx.powerUps.update();
+    expect(pwr.pos[0]).toBe(x);
+    expect(pwr.pos[1]).toBeLessThan(5);
+  });
+
   it('createFromEject maps ammo index to power-up type', () => {
     const ctx = setup();
     const pwr = ctx.powerUps.createFromEject(1, vec3(0, 0, 25), 0.5);

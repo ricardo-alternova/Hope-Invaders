@@ -68,7 +68,7 @@ export class HeroAmmoSystem {
 
       for (const enemy of fleet.enemies) {
         if (!enemy.alive) continue;
-        if (enemy.checkHit(bullet.pos, bullet.type === 0 ? 0.05 : bullet.type === 1 ? 0.11 : 0.3)) {
+        if (enemy.checkHit(bullet.pos, bullet.type === 0 ? 0.14 : bullet.type === 1 ? 0.11 : 0.3)) {
           const dmg = bullet.type === 1 ? bullet.damage * this.ctx.state.speedAdj : bullet.damage;
           enemy.damage += dmg;
           this.ctx.explosions.addHeroAmmoHit(bullet.pos, bullet.type);

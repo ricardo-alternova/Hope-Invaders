@@ -71,7 +71,7 @@ export const ENEMY_SCORES: Record<EnemyType, number> = {
   [EnemyType.Boss01]: 5000,
 };
 
-export const HERO_AMMO_DAMAGE = [3.5, 6.0, 40.0];
+export const HERO_AMMO_DAMAGE = [12, 8.0, 40.0];
 export const HERO_AMMO_SIZE: [number, number][] = [
   [0.05, 0.65],
   [0.11, 1.5],
@@ -91,13 +91,10 @@ export const POWERUP_PASS_SCORE: Record<PowerUpType, number> = {
 };
 
 export const POWERUP_COLORS: Record<PowerUpType, [number, number, number, number]> = {
-  [PowerUpType.Shields]: [0.5, 0.7, 1.0, 1.0],
-  [PowerUpType.SuperShields]: [1.0, 0.6, 0.0, 1.0],
-  [PowerUpType.Repair]: [1.0, 0.1, 0.0, 1.0],
-  [PowerUpType.HeroAmmo00]: [1.0, 0.8, 0.5, 0.8],
-  [PowerUpType.HeroAmmo01]: [0.0, 1.0, 0.5, 0.8],
-  [PowerUpType.HeroAmmo02]: [0.4, 0.2, 1.0, 1.0],
+  [PowerUpType.Shields]: [0.56, 0.78, 0.84, 1.0],
+  [PowerUpType.SuperShields]: [0.86, 0.18, 0.22, 1.0],
+  [PowerUpType.Repair]: [0.95, 0.90, 0.72, 1.0],
+  [PowerUpType.HeroAmmo00]: [0.79, 0.65, 0.36, 1.0],
+  [PowerUpType.HeroAmmo01]: [0.35, 0.82, 0.58, 1.0],
+  [PowerUpType.HeroAmmo02]: [0.55, 0.32, 0.70, 1.0],
 };
-
-export const WOBBLE_0 = 45;
-export const WOBBLE_1 = 75;

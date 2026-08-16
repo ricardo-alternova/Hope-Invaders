@@ -1,17 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { dungeonForLevel, dungeonTextureKeys } from '../fx/dungeonTiles';
 import { GroundMetal } from './GroundMetal';
 
-describe('GroundMetal dungeon tiles', () => {
-  it('maps levels 1–3 to hope dungeon texture names', () => {
+describe('GroundMetal dungeon theme', () => {
+  it('maps levels 1–3 to procedural dungeon ids, not painted tiles', () => {
     const ground = new GroundMetal();
     ground.setVariation(1);
-    expect(ground.textureForSegment(0)).toBe('hopeCenote0');
-    expect(ground.textureForSegment(1)).toBe('hopeCenote1');
-    expect(ground.textureForSegment(2)).toBe('hopeCenote2');
+    expect(ground.dungeon()).toBe('cenote');
     ground.setVariation(2);
-    expect(ground.textureForSegment(0)).toBe('hopeWeb0');
+    expect(ground.dungeon()).toBe('web');
     ground.setVariation(3);
-    expect(ground.textureForSegment(0)).toBe('hopeGarden0');
-    expect(ground.textureForSegment(0)).not.toMatch(/gndMetalBase/);
+    expect(ground.dungeon()).toBe('garden');
+    expect(dungeonForLevel(4)).toBe('cenote');
+    expect(dungeonTextureKeys('cenote').base).toBe('fx-cenote-base');
+    expect(ground.dungeon()).not.toMatch(/gndMetalBase|hopeCenote/);
   });
 });

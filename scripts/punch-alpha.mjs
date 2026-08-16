@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Punch near-midnight pixels to alpha for Hope sprites generated on #0e1430.
+ * Punch hot-magenta (#FF00FF) pixels to alpha for Hope sprites.
  * Usage: node scripts/punch-alpha.mjs [file.png ...]
- * Default: all PNGs in public/assets/hope/
+ * Default: all PNGs in public/assets/hope/ except menu scenery.
  */
 import { readFile, writeFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -12,10 +12,10 @@ import zlib from 'node:zlib';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const hopeDir = path.join(root, 'public/assets/hope');
 
-const KEY_R = 0x0e;
-const KEY_G = 0x14;
-const KEY_B = 0x30;
-const THRESH = 42;
+const KEY_R = 0xff;
+const KEY_G = 0x00;
+const KEY_B = 0xff;
+const THRESH = 140;
 
 function paeth(a, b, c) {
   const p = a + b - c;
@@ -141,36 +141,15 @@ function isKey(pixels, i) {
 }
 
 function punch(width, height, pixels) {
-  const seen = new Uint8Array(width * height);
-  const stack = [];
-  const push = (x, y) => {
-    if (x < 0 || y < 0 || x >= width || y >= height) return;
-    const idx = y * width + x;
-    if (seen[idx]) return;
-    seen[idx] = 1;
-    if (isKey(pixels, idx * 4)) stack.push(idx);
-  };
-  for (let x = 0; x < width; x++) {
-    push(x, 0);
-    push(x, height - 1);
-  }
-  for (let y = 0; y < height; y++) {
-    push(0, y);
-    push(width - 1, y);
-  }
+  // Punch every hot-magenta pixel, not only edge-connected ones, so enclosed
+  // key holes and anti-aliased fringe disappear.
   let punched = 0;
-  while (stack.length) {
-    const idx = stack.pop();
+  const n = width * height;
+  for (let idx = 0; idx < n; idx++) {
     const i = idx * 4;
     if (!isKey(pixels, i)) continue;
     pixels[i + 3] = 0;
     punched++;
-    const x = idx % width;
-    const y = (idx / width) | 0;
-    push(x + 1, y);
-    push(x - 1, y);
-    push(x, y + 1);
-    push(x, y - 1);
   }
   return punched;
 }
@@ -179,7 +158,7 @@ const args = process.argv.slice(2);
 let files = args;
 if (!files.length) {
   files = (await readdir(hopeDir))
-    .filter((f) => f.endsWith('.png') && !f.startsWith('hope') && f !== 'menu_back.png' && f !== 'gndBaseSea.png' && f !== 'chrome.png')
+    .filter((f) => f.endsWith('.png') && !f.startsWith('hope') && f !== 'menu_back.png')
     .map((f) => path.join(hopeDir, f));
 } else {
   files = files.map((f) => path.resolve(f));

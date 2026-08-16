@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HI_SCORE_HIST } from '../constants';
-import { HiScore } from './HiScore';
+import { HiScore, HI_SCORE_STORAGE_KEY, sanitizePilotName } from './HiScore';
 
 function createStorage() {
   const store = new Map<string, string>();
@@ -21,16 +21,16 @@ describe('HiScore', () => {
     vi.stubGlobal('localStorage', createStorage());
   });
 
-  it('loads default scores when storage is empty', () => {
+  it('loads empty board when storage is empty', () => {
     const hs = new HiScore();
     expect(hs.getScores()).toHaveLength(HI_SCORE_HIST);
-    expect(hs.getTopScore()).toBe(250000);
+    expect(hs.getTopScore()).toBe(0);
   });
 
   it('persists scores to localStorage', () => {
     const hs = new HiScore();
     hs.submit(300000, 'ace');
-    const raw = localStorage.getItem('chromium-bsu-hiscores');
+    const raw = localStorage.getItem(HI_SCORE_STORAGE_KEY);
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(raw!) as Array<{ score: number; name: string }>;
     expect(parsed[0].score).toBe(300000);
@@ -40,21 +40,23 @@ describe('HiScore', () => {
   it('returns rank for qualifying scores', () => {
     const hs = new HiScore();
     const rank = hs.submit(180000, 'pilot');
-    expect(rank).toBeGreaterThan(0);
-    expect(rank).toBeLessThanOrEqual(HI_SCORE_HIST);
-    expect(hs.getScores()[rank - 1].score).toBe(180000);
+    expect(rank).toBe(1);
+    expect(hs.getScores()[0].score).toBe(180000);
   });
 
   it('returns 0 for scores below the table', () => {
     const hs = new HiScore();
+    for (let i = 0; i < HI_SCORE_HIST; i++) hs.submit(10000 + i, `p${i}`);
     expect(hs.submit(1, 'weak')).toBe(0);
     expect(hs.getScores()).toHaveLength(HI_SCORE_HIST);
   });
 
   it('isHiScore detects beatable threshold', () => {
     const hs = new HiScore();
-    expect(hs.isHiScore(250001)).toBe(true);
-    expect(hs.isHiScore(50000)).toBe(false);
+    expect(hs.isHiScore(1)).toBe(true);
+    for (let i = 0; i < HI_SCORE_HIST; i++) hs.submit(50000, `p${i}`);
+    expect(hs.isHiScore(1)).toBe(false);
+    expect(hs.isHiScore(50000)).toBe(true);
   });
 
   it('reloads from storage on new instance', () => {
@@ -71,5 +73,11 @@ describe('HiScore', () => {
     }
     expect(hs.getScores()).toHaveLength(HI_SCORE_HIST);
     expect(hs.getTopScore()).toBeGreaterThanOrEqual(100000 + (HI_SCORE_HIST + 2) * 1000);
+  });
+
+  it('sanitizes names', () => {
+    expect(sanitizePilotName('  ace!!  ')).toBe('ace');
+    expect(sanitizePilotName('')).toBe('Max');
+    expect(sanitizePilotName('abcdefghijklmnop')).toBe('abcdefghijkl');
   });
 });

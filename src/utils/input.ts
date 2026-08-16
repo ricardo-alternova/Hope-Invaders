@@ -66,11 +66,18 @@ class GlobalKeyboard {
   private pressed = new Set<GameKey>();
   private listening = false;
   private canvas: HTMLCanvasElement | null = null;
+  private textCapture = false;
 
   constructor() {
     if (typeof document !== 'undefined') {
       this.attachDocumentListeners();
     }
+  }
+
+  /** While true, keys are left for name entry instead of game binds. */
+  setTextCapture(on: boolean): void {
+    this.textCapture = on;
+    if (on) this.pressed.clear();
   }
 
   isDown(key: GameKey): boolean {
@@ -115,6 +122,7 @@ class GlobalKeyboard {
     document.addEventListener(
       'keydown',
       (event) => {
+        if (this.textCapture) return;
         const key = normalizeKey(event);
         if (!key) return;
         this.pressed.add(key);
@@ -130,6 +138,7 @@ class GlobalKeyboard {
     document.addEventListener(
       'keyup',
       (event) => {
+        if (this.textCapture) return;
         const key = normalizeKey(event);
         if (!key) return;
         this.pressed.delete(key);

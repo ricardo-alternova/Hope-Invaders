@@ -4,12 +4,27 @@ import { COPY } from '../copy';
 import { hiScore } from '../game/HiScore';
 import { bindSceneKeys, globalKeyboard } from '../utils/input';
 
+const PLATE = 0x120a1c;
+const GOLD = 0xc9a55c;
+const PLUM = 0x4a2c5a;
+
+function coverImage(img: Phaser.GameObjects.Image, w: number, h: number): void {
+  const iw = img.width || 1;
+  const ih = img.height || 1;
+  const scale = Math.max(w / iw, h / ih);
+  img.setPosition(w / 2, h / 2);
+  img.setDisplaySize(iw * scale, ih * scale);
+}
+
 export class MenuScene extends Phaser.Scene {
   private started = false;
   private unbindKeys?: () => void;
   private bg!: Phaser.GameObjects.Image;
+  private playPlate!: Phaser.GameObjects.Rectangle;
+  private scorePlate!: Phaser.GameObjects.Rectangle;
   private chrome!: Phaser.GameObjects.Image;
   private title!: Phaser.GameObjects.Text;
+  private tagline!: Phaser.GameObjects.Text;
   private scores!: Phaser.GameObjects.Text;
   private startButton!: Phaser.GameObjects.Rectangle;
   private startText!: Phaser.GameObjects.Text;
@@ -25,53 +40,64 @@ export class MenuScene extends Phaser.Scene {
     this.started = false;
     this.cameras.main.setBackgroundColor('#0e1430');
 
-    this.bg = this.add.image(0, 0, pngKey('menu_back'));
-    this.chrome = this.add.image(0, 0, pngKey('chrome'));
+    this.bg = this.add.image(0, 0, pngKey('menu_back')).setDepth(0);
+
+    this.playPlate = this.plate();
+    this.scorePlate = this.plate();
+
+    this.chrome = this.add.image(0, 0, pngKey('chrome')).setDepth(12);
 
     this.title = this.add
       .text(0, 0, COPY.title, {
         fontFamily: 'Cormorant Garamond, serif',
-        fontSize: '48px',
+        fontSize: '42px',
         color: '#fff2c2',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(12)
+      .setShadow(0, 2, '#000000', 6);
 
-    this.add
+    this.tagline = this.add
       .text(0, 0, COPY.tagline, {
         fontFamily: 'Spectral, serif',
-        fontSize: '16px',
+        fontSize: '15px',
         color: '#c9a55c',
         align: 'center',
-        wordWrap: { width: 640 },
       })
-      .setOrigin(0.5)
-      .setName('tagline');
+      .setOrigin(0.5, 0)
+      .setDepth(12);
 
     const scores = hiScore.getScores().slice(0, 5);
-    let scoreText = `${COPY.hopeRestored.toUpperCase()} RESTORED\n`;
-    scores.forEach((entry, i) => {
-      scoreText += `${i + 1}. ${Math.floor(entry.score).toString().padStart(7, '0')}  ${entry.name}\n`;
-    });
+    const scoreText = [
+      `${COPY.hopeRestored.toUpperCase()} RESTORED`,
+      '',
+      ...scores.map(
+        (entry, i) =>
+          `${i + 1}   ${Math.floor(entry.score).toString().padStart(7, '0')}   ${entry.name}`,
+      ),
+    ].join('\n');
 
     this.scores = this.add
       .text(0, 0, scoreText, {
         fontFamily: 'Spectral, serif',
-        fontSize: '15px',
+        fontSize: '16px',
         color: '#8ec6d6',
-        align: 'center',
+        align: 'left',
+        lineSpacing: 8,
       })
-      .setOrigin(0.5);
+      .setOrigin(0, 0)
+      .setDepth(12);
 
     this.startButton = this.add
-      .rectangle(0, 0, 380, 56, 0x4a2c5a, 0.95)
-      .setStrokeStyle(2, 0xc9a55c)
+      .rectangle(0, 0, 280, 52, PLUM, 0.96)
+      .setStrokeStyle(2, GOLD)
       .setInteractive({ useHandCursor: true })
       .setDepth(20);
 
     this.startText = this.add
       .text(0, 0, COPY.start, {
         fontFamily: 'Cormorant Garamond, serif',
-        fontSize: '22px',
+        fontSize: '20px',
         color: '#fff2c2',
       })
       .setOrigin(0.5)
@@ -79,7 +105,7 @@ export class MenuScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: [this.startButton, this.startText],
-      alpha: { from: 1, to: 0.75 },
+      alpha: { from: 1, to: 0.78 },
       duration: 700,
       yoyo: true,
       repeat: -1,
@@ -88,47 +114,34 @@ export class MenuScene extends Phaser.Scene {
     this.hint = this.add
       .text(0, 0, COPY.startHint, {
         fontFamily: 'Spectral, serif',
-        fontSize: '14px',
+        fontSize: '13px',
         color: '#8ec6d6',
+        align: 'center',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(12);
 
     this.controls = this.add
       .text(0, 0, COPY.controls, {
         fontFamily: 'Spectral, serif',
         fontSize: '13px',
         color: '#a09080',
+        align: 'center',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5, 1)
+      .setDepth(12);
 
     this.license = this.add
       .text(0, 0, COPY.license, {
         fontFamily: 'Spectral, serif',
         fontSize: '12px',
-        color: '#5a4a70',
+        color: '#c9a55c',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(12)
+      .setAlpha(0.85);
 
-    const tagline = this.children.getByName('tagline') as Phaser.GameObjects.Text;
-    const layout = () => {
-      const w = this.scale.width;
-      const h = this.scale.height;
-      const cx = w / 2;
-      this.cameras.main.setSize(w, h);
-      this.bg.setPosition(cx, h / 2);
-      this.bg.setDisplaySize(w, h);
-      this.chrome.setPosition(cx, h * 0.12);
-      this.chrome.setDisplaySize(Math.min(w * 0.2, 160), Math.min(h * 0.12, 72));
-      this.title.setPosition(cx, h * 0.26);
-      tagline.setPosition(cx, h * 0.33);
-      tagline.setWordWrapWidth(Math.min(720, w - 48));
-      this.scores.setPosition(cx, h * 0.48);
-      this.startButton.setPosition(cx, h * 0.72);
-      this.startText.setPosition(cx, h * 0.72);
-      this.hint.setPosition(cx, h * 0.8);
-      this.controls.setPosition(cx, h * 0.86);
-      this.license.setPosition(cx, h * 0.92);
-    };
+    const layout = () => this.layoutMenu();
     layout();
     this.scale.on('resize', layout);
     this.events.once('shutdown', () => this.scale.off('resize', layout));
@@ -147,6 +160,66 @@ export class MenuScene extends Phaser.Scene {
     ]);
 
     this.events.once('shutdown', () => this.unbindKeys?.());
+  }
+
+  private plate(): Phaser.GameObjects.Rectangle {
+    return this.add
+      .rectangle(0, 0, 100, 100, PLATE, 0.9)
+      .setStrokeStyle(2, GOLD)
+      .setDepth(10);
+  }
+
+  private layoutMenu(): void {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    this.cameras.main.setSize(w, h);
+    coverImage(this.bg, w, h);
+
+    const stacked = w < 820;
+    const m = Math.max(20, w * 0.03);
+    const colW = stacked ? Math.min(w - m * 2, 440) : Math.min(340, (w - m * 2) * 0.36);
+    const playH = stacked ? Math.min(h * 0.5, 430) : Math.min(h - 72, 540);
+    const scoreH = stacked ? Math.min(h * 0.26, 210) : Math.min(playH * 0.62, 320);
+
+    let playX: number;
+    let playY: number;
+    let scoreX: number;
+    let scoreY: number;
+
+    if (stacked) {
+      playX = w / 2;
+      playY = h * 0.4;
+      scoreX = w / 2;
+      scoreY = Math.min(h - m - scoreH / 2 - 22, playY + playH / 2 + 16 + scoreH / 2);
+    } else {
+      playX = m + colW / 2;
+      scoreX = w - m - colW / 2;
+      playY = h / 2;
+      scoreY = playY - playH / 2 + scoreH / 2;
+    }
+
+    this.playPlate.setPosition(playX, playY);
+    this.playPlate.setSize(colW, playH);
+    this.scorePlate.setPosition(scoreX, scoreY);
+    this.scorePlate.setSize(colW, scoreH);
+
+    const pad = 22;
+    const top = playY - playH / 2;
+    this.chrome.setPosition(playX, top + 44);
+    this.chrome.setDisplaySize(Math.min(colW * 0.38, 120), Math.min(playH * 0.12, 56));
+    this.title.setPosition(playX, top + 92);
+    this.tagline.setPosition(playX, top + 118);
+    this.tagline.setWordWrapWidth(colW - pad * 2);
+    this.startButton.setPosition(playX, playY + 18);
+    this.startButton.setSize(Math.min(colW - pad * 2, 300), 52);
+    this.startText.setPosition(playX, this.startButton.y);
+    this.hint.setPosition(playX, this.startButton.y + 46);
+    this.hint.setWordWrapWidth(colW - pad * 2);
+    this.controls.setPosition(playX, playY + playH / 2 - 18);
+    this.controls.setWordWrapWidth(colW - pad * 2);
+
+    this.scores.setPosition(scoreX - colW / 2 + pad, scoreY - scoreH / 2 + pad);
+    this.license.setPosition(w / 2, h - 18);
   }
 
   private startGame(): void {

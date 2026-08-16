@@ -37,6 +37,7 @@ export class GameContext {
 
   onBossKilled: () => void = () => {};
   onGameOver: () => void = () => {};
+  onLifeLost: () => void = () => {};
 
   constructor(
     state: GameState,
