@@ -241,12 +241,12 @@ export class MenuScene extends Phaser.Scene {
     this.startText.setPosition(playX, this.startButton.y);
     this.hint.setPosition(playX, Math.round(this.startButton.y + 46));
     this.hint.setWordWrapWidth(colW - pad * 2);
-    const linksY = Math.round(this.hint.y + 28);
+    this.controls.setPosition(playX, Math.round(playY + playH / 2 - 18));
+    this.controls.setWordWrapWidth(colW - pad * 2);
+    const linksY = Math.round(this.controls.y - this.controls.height - 14);
     this.linkSep.setPosition(playX, linksY);
     this.linkMechanics.setPosition(playX - 12, linksY);
     this.linkArt.setPosition(playX + 12, linksY);
-    this.controls.setPosition(playX, Math.round(playY + playH / 2 - 18));
-    this.controls.setWordWrapWidth(colW - pad * 2);
 
     const scoreTop = scoreY - scoreH / 2;
     this.scoreHeading.setPosition(scoreX, Math.round(scoreTop + pad));
