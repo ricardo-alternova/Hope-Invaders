@@ -115,7 +115,7 @@ describe('play movement (WASD)', () => {
     const { hero } = createTestContext({ gameMode: GameMode.Game });
     hero.newGame();
     const x0 = hero.pos[0];
-    // Old bug: pointer.velocity * 0.15 * MOVEMENT_SPEED per mousemove
+    // Mouse deltas must not be the movement model.
     hero.updateKeyboard();
     expect(hero.pos[0]).toBe(x0);
     hero.setHeld('right', true);

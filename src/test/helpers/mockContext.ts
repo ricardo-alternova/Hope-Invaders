@@ -11,8 +11,6 @@ import { GameMode } from '../../constants';
 export function createNoopAudio(): AudioManager {
   return {
     play: () => {},
-    playMusic: () => {},
-    stopMusic: () => {},
   };
 }
 

@@ -23,6 +23,7 @@ import { LevelSpawner } from '../game/LevelSpawner';
 import { PowerUpSystem } from '../game/PowerUps';
 import { worldSizeToPixels, worldToScreen } from '../utils/coords';
 import { bindSceneKeys, focusGameCanvas, globalKeyboard } from '../utils/input';
+import { sharpText } from '../ui/sharpText';
 import { viewSize, type ViewSize } from '../utils/viewport';
 
 const HUD_SCALE = 1.65;
@@ -31,31 +32,10 @@ function hudPx(n: number): number {
   return Math.round(n * HUD_SCALE);
 }
 
-function textResolution(): number {
-  if (typeof window === 'undefined') return 2;
-  return Math.max(2, Math.round(window.devicePixelRatio || 1));
-}
-
-function sharpText(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  content: string,
-  style: Phaser.Types.GameObjects.Text.TextStyle,
-): Phaser.GameObjects.Text {
-  const resolution = textResolution();
-  return scene.add.text(x, y, content, {
-    ...style,
-    resolution,
-    padding: { x: 4, y: 2 },
-  }).setResolution(resolution);
-}
-
 export class GameScene extends Phaser.Scene {
   ctx!: GameContext;
   private accumulator = 0;
   private lastRightClick = 0;
-  private zeroKeyCount = 0;
   private firingPointer = false;
   private firingSpace = false;
   private gameOverQueued = false;
@@ -417,14 +397,6 @@ export class GameScene extends Phaser.Scene {
         } else if (wasArmed) {
           this.hudMessage.setText('');
         }
-      }),
-      globalKeyboard.onKeyDown('Digit0', () => {
-        this.zeroKeyCount++;
-        if (this.zeroKeyCount >= 2) {
-          this.ctx.hero.useItem();
-          this.zeroKeyCount = 0;
-        }
-        this.time.delayedCall(400, () => { this.zeroKeyCount = 0; });
       }),
       ...bindHold('ArrowLeft', 'left'),
       ...bindHold('ArrowRight', 'right'),

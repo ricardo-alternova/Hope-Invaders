@@ -22,7 +22,6 @@ export class Enemy {
   secondaryMove: [number, number] = [0, 0];
   size: [number, number] = [0.75, 1.02];
   damage = -110;
-  baseDamage = -110;
   collisionMove = 0.5;
   age = 0;
   shootInterval = 1;
@@ -33,7 +32,6 @@ export class Enemy {
   lastMoveY = 0;
   shootVec: Vec3 = [0, -0.2, 0];
   alive = true;
-  silentDelete = false;
 
   ctx?: GameContext;
 
@@ -51,44 +49,44 @@ export class Enemy {
 
     switch (this.type) {
       case EnemyType.Straight:
-        this.baseDamage = this.damage = -110 * skill;
+        this.damage = -110 * skill;
         this.size = [0.75, 1.02];
         this.collisionMove = 0.5;
         this.vel[1] = -0.046 - f * 0.04;
         break;
       case EnemyType.Omni:
-        this.baseDamage = this.damage = -45;
+        this.damage = -45;
         this.size = [0.7, 0.7];
         this.collisionMove = 0.7;
         this.vel[1] = -0.071 - f * 0.04;
         break;
       case EnemyType.RayGun:
-        this.baseDamage = this.damage = -1000 * skill;
+        this.damage = -1000 * skill;
         this.size = [1.2, 1.2];
         this.collisionMove = 1.0;
         this.vel[1] = -0.02;
         break;
       case EnemyType.Tank:
-        this.baseDamage = this.damage = -2000 * skill;
+        this.damage = -2000 * skill;
         this.size = [1.9, 2.1];
         this.collisionMove = 1.5;
         this.vel[1] = -0.035;
         break;
       case EnemyType.Gnat:
-        this.baseDamage = this.damage = -10;
+        this.damage = -10;
         this.size = [0.45, 0.45];
         this.collisionMove = 0;
         this.randMoveX = 0.5 + 0.5 * this.randMoveX;
         this.vel = [0.2, 0.1, 0];
         break;
       case EnemyType.Boss00:
-        this.baseDamage = this.damage = -10000 * skill;
+        this.damage = -10000 * skill;
         this.size = [3.5, 2.275];
         this.collisionMove = 0.05;
         this.vel[1] = 0.02;
         break;
       case EnemyType.Boss01:
-        this.baseDamage = this.damage = -10000 * skill;
+        this.damage = -10000 * skill;
         this.size = [2.6, 2.3];
         this.collisionMove = 0.1;
         this.vel[1] = 0.02;

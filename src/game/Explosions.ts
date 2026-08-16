@@ -1,21 +1,14 @@
 import type { Vec3 } from '../utils/coords';
 
-/** Explosion types matching Explosions.h */
 export const ExploType = {
   EnemyDestroyed: 'enemy_destroyed',
   EnemyDamage: 'enemy_damage',
   HeroDestroyed: 'hero_destroyed',
-  HeroDamage: 'hero_damage',
   HeroAmmo00: 'hero_ammo_0',
   HeroAmmo01: 'hero_ammo_1',
   HeroAmmo02: 'hero_ammo_2',
   HeroShields: 'hero_shields',
   PowerBurst: 'power_burst',
-  AddLife: 'add_life',
-  LoseLife: 'lose_life',
-  ScoreLife: 'score_life',
-  Electric: 'electric',
-  Glitter: 'glitter',
 } as const;
 
 export type ExploTypeName = (typeof ExploType)[keyof typeof ExploType];
@@ -38,17 +31,11 @@ const EXPLO_CONFIG: Record<
   [ExploType.EnemyDestroyed]: { maxAge: 30, halfW: 1.35, halfH: 1.35 },
   [ExploType.EnemyDamage]: { maxAge: 20, halfW: 1.0, halfH: 1.0 },
   [ExploType.HeroDestroyed]: { maxAge: 25, halfW: 1.5, halfH: 1.5 },
-  [ExploType.HeroDamage]: { maxAge: 25, halfW: 1.1, halfH: 1.1 },
   [ExploType.HeroAmmo00]: { maxAge: 10, halfW: 0.25, halfH: 0.25 },
   [ExploType.HeroAmmo01]: { maxAge: 15, halfW: 0.5, halfH: 1.0 },
   [ExploType.HeroAmmo02]: { maxAge: 23, halfW: 0.9, halfH: 1.0 },
   [ExploType.HeroShields]: { maxAge: 25, halfW: 1.6, halfH: 1.6, additive: true },
   [ExploType.PowerBurst]: { maxAge: 35, halfW: 1.8, halfH: 1.8, additive: true },
-  [ExploType.AddLife]: { maxAge: 25, halfW: 2.5, halfH: 2.5 },
-  [ExploType.LoseLife]: { maxAge: 35, halfW: 3.5, halfH: 3.5 },
-  [ExploType.ScoreLife]: { maxAge: 35, halfW: 3.5, halfH: 3.5 },
-  [ExploType.Electric]: { maxAge: 43, halfW: 1.7, halfH: 0.5, additive: true },
-  [ExploType.Glitter]: { maxAge: 20, halfW: 0.8, halfH: 1.0, additive: true },
 };
 
 export class ExplosionSystem {
@@ -92,10 +79,6 @@ export class ExplosionSystem {
     this.add(ExploType.HeroShields, pos);
   }
 
-  addHeroDamage(pos: Vec3): void {
-    this.add(ExploType.HeroDamage, pos);
-  }
-
   addHeroDeath(pos: Vec3): void {
     for (let i = 0; i < 7; i++) {
       this.add(ExploType.HeroDestroyed, [
@@ -108,27 +91,6 @@ export class ExplosionSystem {
 
   addSuperBomb(_pos: Vec3): void {
     this.add(ExploType.PowerBurst, [0, -15, _pos[2]]);
-  }
-
-  addScoreLife(pos: Vec3): void {
-    this.add(ExploType.ScoreLife, [-7.9, -8.0, pos[2]]);
-    this.add(ExploType.PowerBurst, [-7.9, -8.0, pos[2]]);
-  }
-
-  addElectric(pos: Vec3): void {
-    this.add(ExploType.Electric, pos);
-  }
-
-  addGlitter(pos: Vec3): void {
-    this.add(ExploType.Glitter, pos);
-  }
-
-  addLife(pos: Vec3): void {
-    this.add(ExploType.AddLife, pos);
-  }
-
-  addLoseLife(pos: Vec3): void {
-    this.add(ExploType.LoseLife, pos);
   }
 
   update(): void {
@@ -144,7 +106,6 @@ export class ExplosionSystem {
       case ExploType.EnemyDestroyed:
       case ExploType.EnemyDamage:
       case ExploType.HeroDestroyed:
-      case ExploType.HeroDamage:
         return 'enemyExplo';
       case ExploType.HeroAmmo00:
       case ExploType.HeroAmmo01:
@@ -154,14 +115,6 @@ export class ExplosionSystem {
         return 'explo';
       case ExploType.PowerBurst:
         return 'powerUpTex';
-      case ExploType.AddLife:
-      case ExploType.LoseLife:
-      case ExploType.ScoreLife:
-        return 'glitter';
-      case ExploType.Electric:
-        return 'glitter';
-      case ExploType.Glitter:
-        return 'glitter';
       default:
         return 'explo';
     }

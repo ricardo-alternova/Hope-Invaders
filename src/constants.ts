@@ -1,22 +1,16 @@
-// Ported from Chromium B.S.U. src/define.h and related sources
-
 export const AMMO_REFILL = 150;
 export const HERO_Z = 25.0;
 export const HERO_DAMAGE = -500.0;
 export const HERO_SHIELDS = 500.0;
 export const NUM_HERO_AMMO_TYPES = 3;
-export const NUM_ENEMY_AMMO_TYPES = 5;
-export const NUM_HERO_ITEMS = 1;
-export const DEATH_SPIKES = 7;
 export const DEATH_TIME = 50;
 export const SCORE_STEP = 50000;
-export const HI_SCORE_HIST = 5;
+export const HI_SCORE_HIST = 20;
 
 export const SCREEN_W = 800;
 export const SCREEN_H = 600;
 export const SCREEN_BOUND_X = 11.0;
 export const SCREEN_BOUND_Y = 9.0;
-export const MOVEMENT_SPEED = 0.03;
 /** World units per frame at 50 FPS while a WASD/arrow key is held. */
 export const KEYBOARD_MOVE_SPEED = 0.22;
 export const GAME_SKILL_BASE = 0.5;
@@ -71,12 +65,7 @@ export const ENEMY_SCORES: Record<EnemyType, number> = {
   [EnemyType.Boss01]: 5000,
 };
 
-export const HERO_AMMO_DAMAGE = [12, 8.0, 40.0];
-export const HERO_AMMO_SIZE: [number, number][] = [
-  [0.05, 0.65],
-  [0.11, 1.5],
-  [0.3, 1.5],
-];
+export const HERO_AMMO_DAMAGE = [8, 8.0, 40.0];
 export const HERO_AMMO_VEL = [0.5, 0.2, 0.3];
 
 export const ENEMY_AMMO_DAMAGE = [75, 6, 100, 20, 8.5];

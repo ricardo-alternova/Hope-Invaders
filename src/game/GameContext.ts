@@ -14,14 +14,10 @@ export type SoundKey =
   | 'exploBig'
   | 'power'
   | 'life_add'
-  | 'life_lose'
-  | 'music_game'
-  | 'music_menu';
+  | 'life_lose';
 
 export interface AudioManager {
   play(key: SoundKey): void;
-  playMusic(key: 'music_game' | 'music_menu'): void;
-  stopMusic(): void;
 }
 
 export class GameContext {
@@ -69,15 +65,6 @@ export function createPhaserAudio(scene: Phaser.Scene): AudioManager {
       if (scene.sound.get(id)) {
         scene.sound.play(id, { volume: 0.9 });
       }
-    },
-    playMusic(key) {
-      const id = wavKey(key);
-      if (scene.sound.get(id)) {
-        scene.sound.play(id, { loop: true, volume: 0.4 });
-      }
-    },
-    stopMusic() {
-      scene.sound.stopAll();
     },
   };
 }

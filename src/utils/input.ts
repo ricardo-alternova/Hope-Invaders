@@ -13,8 +13,7 @@ export type GameKey =
   | 'KeyW'
   | 'KeyA'
   | 'KeyS'
-  | 'KeyD'
-  | 'Digit0';
+  | 'KeyD';
 
 type Handler = () => void;
 
@@ -45,9 +44,6 @@ export function normalizeKey(event: Pick<KeyboardEvent, 'code' | 'key'>): GameKe
       return 'KeyS';
     case 'KeyD':
       return 'KeyD';
-    case 'Digit0':
-    case 'Numpad0':
-      return 'Digit0';
     default:
       break;
   }
@@ -56,7 +52,6 @@ export function normalizeKey(event: Pick<KeyboardEvent, 'code' | 'key'>): GameKe
   if (event.key === ' ') return 'Space';
   if (event.key === 'Escape') return 'Escape';
   if (event.key === 'p' || event.key === 'P') return 'KeyP';
-  if (event.key === '0') return 'Digit0';
   return null;
 }
 

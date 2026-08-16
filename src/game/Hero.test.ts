@@ -50,7 +50,7 @@ describe('Hero', () => {
     const c = ctx();
     c.hero.newGame();
     c.hero.lives = 9;
-    c.hero.addLife(false);
+    c.hero.addLife();
     expect(c.hero.lives).toBe(9);
     expect(c.hero.superBomb).toBe(1);
   });
@@ -139,7 +139,7 @@ describe('Hero', () => {
       hero.newGame();
       hero.pos[0] = 20;
       hero.pos[1] = 20;
-      hero.moveEvent(100, 100);
+      hero.clampToView();
       const screen = worldToScreen(hero.pos[0], hero.pos[1]);
       const size = worldSizeToPixels(hero.size[0], hero.size[1], hero.pos[1]);
       expect(screen.x + size.w / 2).toBeLessThanOrEqual(SCREEN_W);

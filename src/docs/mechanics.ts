@@ -30,7 +30,7 @@ document.querySelector('#app')!.innerHTML = `
         <div class="step"><strong>Waves</strong><span>Scheduled at boot of the level. Density scales with skill.</span></div>
         <div class="step"><strong>Boss</strong><span>Last spawn. Releasing it restores the shard (~9s of “Shard restored”).</span></div>
         <div class="step"><strong>Next dungeon</strong><span>Level++, Max resets HOPE/RSV and guns empty except infinite Wand.</span></div>
-        <div class="step"><strong>Village goes dark</strong><span>Lives &lt; 0. Enter a name, record Hope restored, then the village square shows the board.</span></div>
+        <div class="step"><strong>Village goes dark</strong><span>Lives &lt; 0. Enter a name, record Hope restored, then the village square shows the top 20.</span></div>
       </div>
     </section>
 
@@ -39,7 +39,7 @@ document.querySelector('#app')!.innerHTML = `
       <table>
         <thead><tr><th></th><th>Thing</th><th>How it works</th></tr></thead>
         <tbody>
-          <tr><td>${sprite('hero')}</td><td>Move</td><td>WASD / arrows hold-to-move. Mouse also steers. Sides of the screen stay open; the top 25% is blocked.</td></tr>
+          <tr><td>${sprite('hero')}</td><td>Move</td><td>WASD / arrows hold-to-move. Sides of the screen stay open; the top 25% is blocked.</td></tr>
           <tr><td>${sprite('heroAmmo00')}</td><td>Wand</td><td>Click / Space. Always on: two gold streams. A short burst releases an early kelp shade. Pickup adds two extra streams.</td></tr>
           <tr><td>${sprite('heroAmmo01')}</td><td>Lamp</td><td>Pickup only. Slower cyan bolt, damage 8, uses the Lamp bar.</td></tr>
           <tr><td>${sprite('heroAmmo02')}</td><td>Amu</td><td>Pickup only. Heavy plum-gold pulse, damage 40, uses the Amu bar.</td></tr>

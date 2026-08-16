@@ -69,9 +69,10 @@ describe('EnemyFleet', () => {
     ctx.hero.pos = vec3(0, 0, 25);
     const enemy = ctx.enemyFleet.addEnemy(EnemyType.Straight, vec3(0, 0, 25));
     const shieldsBefore = ctx.hero.shields;
+    const hp = enemy.damage;
     ctx.enemyFleet.update();
     expect(ctx.hero.shields).toBeLessThanOrEqual(shieldsBefore);
-    expect(enemy.damage).toBeGreaterThan(enemy.baseDamage);
+    expect(enemy.damage).toBeGreaterThan(hp);
     const shieldsAfterHit = ctx.hero.shields;
     ctx.enemyFleet.update();
     expect(ctx.hero.shields).toBe(shieldsAfterHit);

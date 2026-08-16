@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { pngKey, wavKey } from '../assets';
+import { HI_SCORE_HIST } from '../constants';
 import { COPY } from '../copy';
 import { hiScore } from '../game/HiScore';
+import { sharpText } from '../ui/sharpText';
 import { bindSceneKeys, globalKeyboard } from '../utils/input';
 
 const PLATE = 0x120a1c;
@@ -25,6 +27,7 @@ export class MenuScene extends Phaser.Scene {
   private chrome!: Phaser.GameObjects.Image;
   private title!: Phaser.GameObjects.Text;
   private tagline!: Phaser.GameObjects.Text;
+  private scoreHeading!: Phaser.GameObjects.Text;
   private scores!: Phaser.GameObjects.Text;
   private startButton!: Phaser.GameObjects.Rectangle;
   private startText!: Phaser.GameObjects.Text;
@@ -47,44 +50,46 @@ export class MenuScene extends Phaser.Scene {
 
     this.chrome = this.add.image(0, 0, pngKey('chrome')).setDepth(12);
 
-    this.title = this.add
-      .text(0, 0, COPY.title, {
-        fontFamily: 'Cormorant Garamond, serif',
-        fontSize: '42px',
-        color: '#fff2c2',
-      })
+    this.title = sharpText(this, 0, 0, COPY.title, {
+      fontFamily: 'Cormorant Garamond, serif',
+      fontSize: '42px',
+      color: '#fff2c2',
+    })
       .setOrigin(0.5)
-      .setDepth(12)
-      .setShadow(0, 2, '#000000', 6);
+      .setDepth(12);
 
-    this.tagline = this.add
-      .text(0, 0, COPY.tagline, {
-        fontFamily: 'Spectral, serif',
-        fontSize: '15px',
-        color: '#c9a55c',
-        align: 'center',
-      })
+    this.tagline = sharpText(this, 0, 0, COPY.tagline, {
+      fontFamily: 'Spectral, serif',
+      fontSize: '15px',
+      color: '#c9a55c',
+      align: 'center',
+    })
       .setOrigin(0.5, 0)
       .setDepth(12);
 
-    const scores = hiScore.getScores().slice(0, 5);
-    const scoreText = [
-      `${COPY.hopeRestored.toUpperCase()} RESTORED`,
-      '',
-      ...scores.map(
-        (entry, i) =>
-          `${i + 1}   ${Math.floor(entry.score).toString().padStart(7, '0')}   ${entry.name}`,
-      ),
-    ].join('\n');
+    this.scoreHeading = sharpText(this, 0, 0, `${COPY.hopeRestored.toUpperCase()} RESTORED`, {
+      fontFamily: 'Cormorant Garamond, serif',
+      fontSize: '22px',
+      color: '#fff2c2',
+    })
+      .setOrigin(0.5, 0)
+      .setDepth(12);
 
-    this.scores = this.add
-      .text(0, 0, scoreText, {
-        fontFamily: 'Spectral, serif',
-        fontSize: '16px',
-        color: '#8ec6d6',
-        align: 'left',
-        lineSpacing: 8,
-      })
+    const rows = hiScore.getScores().slice(0, HI_SCORE_HIST);
+    const scoreText = rows
+      .map(
+        (entry, i) =>
+          `${String(i + 1).padStart(2, ' ')}  ${Math.floor(entry.score).toString().padStart(7, '0')}  ${entry.name}`,
+      )
+      .join('\n');
+
+    this.scores = sharpText(this, 0, 0, scoreText, {
+      fontFamily: 'Spectral, serif',
+      fontSize: '14px',
+      color: '#8ec6d6',
+      align: 'left',
+      lineSpacing: 3,
+    })
       .setOrigin(0, 0)
       .setDepth(12);
 
@@ -94,12 +99,11 @@ export class MenuScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
       .setDepth(20);
 
-    this.startText = this.add
-      .text(0, 0, COPY.start, {
-        fontFamily: 'Cormorant Garamond, serif',
-        fontSize: '20px',
-        color: '#fff2c2',
-      })
+    this.startText = sharpText(this, 0, 0, COPY.start, {
+      fontFamily: 'Cormorant Garamond, serif',
+      fontSize: '20px',
+      color: '#fff2c2',
+    })
       .setOrigin(0.5)
       .setDepth(21);
 
@@ -111,32 +115,29 @@ export class MenuScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    this.hint = this.add
-      .text(0, 0, COPY.startHint, {
-        fontFamily: 'Spectral, serif',
-        fontSize: '13px',
-        color: '#8ec6d6',
-        align: 'center',
-      })
+    this.hint = sharpText(this, 0, 0, COPY.startHint, {
+      fontFamily: 'Spectral, serif',
+      fontSize: '13px',
+      color: '#8ec6d6',
+      align: 'center',
+    })
       .setOrigin(0.5)
       .setDepth(12);
 
-    this.controls = this.add
-      .text(0, 0, COPY.controls, {
-        fontFamily: 'Spectral, serif',
-        fontSize: '13px',
-        color: '#a09080',
-        align: 'center',
-      })
+    this.controls = sharpText(this, 0, 0, COPY.controls, {
+      fontFamily: 'Spectral, serif',
+      fontSize: '13px',
+      color: '#a09080',
+      align: 'center',
+    })
       .setOrigin(0.5, 1)
       .setDepth(12);
 
-    this.license = this.add
-      .text(0, 0, COPY.license, {
-        fontFamily: 'Spectral, serif',
-        fontSize: '12px',
-        color: '#c9a55c',
-      })
+    this.license = sharpText(this, 0, 0, COPY.license, {
+      fontFamily: 'Spectral, serif',
+      fontSize: '12px',
+      color: '#c9a55c',
+    })
       .setOrigin(0.5)
       .setDepth(12)
       .setAlpha(0.85);
@@ -176,26 +177,28 @@ export class MenuScene extends Phaser.Scene {
     coverImage(this.bg, w, h);
 
     const stacked = w < 820;
-    const m = Math.max(20, w * 0.03);
-    const colW = stacked ? Math.min(w - m * 2, 440) : Math.min(340, (w - m * 2) * 0.36);
-    const playH = stacked ? Math.min(h * 0.5, 430) : Math.min(h - 72, 540);
-    const scoreH = stacked ? Math.min(h * 0.26, 210) : Math.min(playH * 0.62, 320);
+    const m = Math.max(20, Math.round(w * 0.03));
+    const colW = stacked ? Math.min(w - m * 2, 440) : Math.min(360, Math.round((w - m * 2) * 0.36));
+    const playH = stacked ? Math.min(Math.round(h * 0.42), 400) : Math.min(h - 72, 560);
 
     let playX: number;
     let playY: number;
     let scoreX: number;
     let scoreY: number;
+    let scoreH: number;
 
     if (stacked) {
-      playX = w / 2;
-      playY = h * 0.4;
-      scoreX = w / 2;
-      scoreY = Math.min(h - m - scoreH / 2 - 22, playY + playH / 2 + 16 + scoreH / 2);
+      playX = Math.round(w / 2);
+      playY = Math.round(h * 0.32);
+      scoreH = Math.max(220, Math.round(h - (playY + playH / 2) - m - 28));
+      scoreX = playX;
+      scoreY = Math.round(playY + playH / 2 + 12 + scoreH / 2);
     } else {
-      playX = m + colW / 2;
-      scoreX = w - m - colW / 2;
-      playY = h / 2;
-      scoreY = playY - playH / 2 + scoreH / 2;
+      playX = Math.round(m + colW / 2);
+      scoreX = Math.round(w - m - colW / 2);
+      playY = Math.round(h / 2);
+      scoreY = playY;
+      scoreH = playH;
     }
 
     this.playPlate.setPosition(playX, playY);
@@ -205,21 +208,28 @@ export class MenuScene extends Phaser.Scene {
 
     const pad = 22;
     const top = playY - playH / 2;
-    this.chrome.setPosition(playX, top + 44);
+    this.chrome.setPosition(playX, Math.round(top + 44));
     this.chrome.setDisplaySize(Math.min(colW * 0.38, 120), Math.min(playH * 0.12, 56));
-    this.title.setPosition(playX, top + 92);
-    this.tagline.setPosition(playX, top + 118);
+    this.title.setPosition(playX, Math.round(top + 92));
+    this.tagline.setPosition(playX, Math.round(top + 118));
     this.tagline.setWordWrapWidth(colW - pad * 2);
-    this.startButton.setPosition(playX, playY + 18);
+    this.startButton.setPosition(playX, Math.round(playY + 18));
     this.startButton.setSize(Math.min(colW - pad * 2, 300), 52);
     this.startText.setPosition(playX, this.startButton.y);
-    this.hint.setPosition(playX, this.startButton.y + 46);
+    this.hint.setPosition(playX, Math.round(this.startButton.y + 46));
     this.hint.setWordWrapWidth(colW - pad * 2);
-    this.controls.setPosition(playX, playY + playH / 2 - 18);
+    this.controls.setPosition(playX, Math.round(playY + playH / 2 - 18));
     this.controls.setWordWrapWidth(colW - pad * 2);
 
-    this.scores.setPosition(scoreX - colW / 2 + pad, scoreY - scoreH / 2 + pad);
-    this.license.setPosition(w / 2, h - 18);
+    const scoreTop = scoreY - scoreH / 2;
+    this.scoreHeading.setPosition(scoreX, Math.round(scoreTop + pad));
+    const listTop = Math.round(scoreTop + pad + 36);
+    this.scores.setPosition(Math.round(scoreX - colW / 2 + pad), listTop);
+    const listH = scoreH - pad * 2 - 40;
+    const line = Math.max(12, Math.min(15, Math.floor(listH / HI_SCORE_HIST) - 1));
+    this.scores.setFontSize(line);
+    this.scores.setLineSpacing(Math.max(1, Math.floor(listH / HI_SCORE_HIST) - line));
+    this.license.setPosition(Math.round(w / 2), Math.round(h - 18));
   }
 
   private startGame(): void {

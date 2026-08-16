@@ -14,6 +14,5 @@ describe('ExplosionSystem.textureFor', () => {
   it('uses gold release motes for wand hits', () => {
     expect(fx.textureFor(ExploType.HeroAmmo00)).toBe('glitter');
     expect(fx.textureFor(ExploType.HeroShields)).toBe('explo');
-    expect(fx.textureFor(ExploType.Electric)).toBe('glitter');
   });
 });

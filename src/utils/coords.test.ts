@@ -3,12 +3,11 @@ import {
   clamp,
   manhattanDist,
   perspectiveScale,
-  seaScreenY,
   worldSizeToPixels,
   screenToWorld,
   worldToScreen,
 } from './coords';
-import { HERO_Z, SCREEN_BOUND_X, SCREEN_BOUND_Y, SCREEN_H, SCREEN_W } from '../constants';
+import { HERO_Z, SCREEN_H, SCREEN_W } from '../constants';
 
 describe('coords', () => {
   describe('perspectiveScale', () => {
@@ -88,12 +87,4 @@ describe('coords', () => {
     });
   });
 
-  describe('seaScreenY', () => {
-    it('returns bottom playfield screen Y', () => {
-      const sea = seaScreenY();
-      const bound = worldToScreen(0, -SCREEN_BOUND_Y).y;
-      expect(sea).toBeCloseTo(bound);
-      expect(sea).toBeGreaterThan(SCREEN_H / 2);
-    });
-  });
 });

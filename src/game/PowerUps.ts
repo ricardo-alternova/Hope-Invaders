@@ -69,7 +69,7 @@ export class PowerUpSystem {
         const score = POWERUP_PASS_SCORE[pwr.type];
         hero.addScore(score);
         if (pwr.type === PowerUpType.SuperShields) {
-          hero.addLife(false);
+          hero.addLife();
         }
         continue;
       }

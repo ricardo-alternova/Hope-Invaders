@@ -75,6 +75,17 @@ describe('HiScore', () => {
     expect(hs.getTopScore()).toBeGreaterThanOrEqual(100000 + (HI_SCORE_HIST + 2) * 1000);
   });
 
+  it('pads a short saved board to twenty rows', () => {
+    localStorage.setItem(
+      HI_SCORE_STORAGE_KEY,
+      JSON.stringify([{ score: 12, name: 'Max', date: 1 }]),
+    );
+    const hs = new HiScore();
+    expect(hs.getScores()).toHaveLength(HI_SCORE_HIST);
+    expect(hs.getScores()[0].name).toBe('Max');
+    expect(hs.getScores()[19].name).toBe('---');
+  });
+
   it('sanitizes names', () => {
     expect(sanitizePilotName('  ace!!  ')).toBe('ace');
     expect(sanitizePilotName('')).toBe('Max');

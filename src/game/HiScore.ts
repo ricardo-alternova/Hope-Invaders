@@ -30,9 +30,10 @@ export class HiScore {
     try {
       const raw = localStorage.getItem(HI_SCORE_STORAGE_KEY);
       if (raw) {
-        this.scores = JSON.parse(raw) as HiScoreEntry[];
-        if (Array.isArray(this.scores) && this.scores.length) {
-          this.scores = this.scores.slice(0, HI_SCORE_HIST);
+        const parsed = JSON.parse(raw) as HiScoreEntry[];
+        if (Array.isArray(parsed) && parsed.length) {
+          this.scores = parsed.slice(0, HI_SCORE_HIST);
+          this.padBoard();
           return;
         }
       }
@@ -40,6 +41,16 @@ export class HiScore {
       // fall through to defaults
     }
     this.scores = DEFAULT_SCORES.map((entry) => ({ ...entry }));
+  }
+
+  private padBoard(): void {
+    while (this.scores.length < HI_SCORE_HIST) {
+      this.scores.push({
+        score: 0,
+        name: '---',
+        date: Date.UTC(2000, 0, 1),
+      });
+    }
   }
 
   save(): void {

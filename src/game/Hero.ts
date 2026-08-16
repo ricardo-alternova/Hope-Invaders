@@ -1,11 +1,11 @@
 import {
   AMMO_REFILL,
+  DEATH_TIME,
   HERO_DAMAGE,
   HERO_HIT_IFRAMES,
   HERO_SHIELDS,
   HERO_Z,
   KEYBOARD_MOVE_SPEED,
-  MOVEMENT_SPEED,
   NUM_HERO_AMMO_TYPES,
   PLAYFIELD_PAD,
   SCORE_STEP,
@@ -29,7 +29,6 @@ export class Hero {
   superBomb = 0;
   dontShow = 0;
   hurtIFrames = 0;
-  currentItemIndex = 0;
   useItemArmed = 0;
 
   gunTrigger = false;
@@ -62,7 +61,6 @@ export class Hero {
     this.hurtIFrames = 0;
     this.damage = HERO_DAMAGE;
     this.shields = HERO_SHIELDS;
-    this.currentItemIndex = 0;
     this.secondaryMove = [0, 0];
     this.gunTrigger = false;
     this.gunSwap = false;
@@ -89,21 +87,17 @@ export class Hero {
     }
     while (this.score >= this.scoreTarget) {
       this.scoreTarget += SCORE_STEP;
-      this.addLife(true);
+      this.addLife();
     }
   }
 
-  addLife(fromScore = false): void {
+  addLife(): void {
     if (this.lives < 9) {
       this.lives++;
     } else {
       this.superBomb = 1;
     }
     this.ctx.audio.play('life_add');
-    this.ctx.explosions.addLife([10.2, 7.4 - this.lives * this.size[1], this.pos[2]]);
-    if (fromScore) {
-      this.ctx.explosions.addScoreLife(this.pos);
-    }
   }
 
   loseLife(): void {
@@ -138,15 +132,6 @@ export class Hero {
 
   clearHeld(): void {
     this.holdLeft = this.holdRight = this.holdUp = this.holdDown = false;
-  }
-
-  moveEvent(dx: number, dy: number): void {
-    const { state } = this.ctx;
-    if (state.gameMode === 3 || state.gamePause) return;
-
-    this.pos[0] += dx * MOVEMENT_SPEED;
-    this.pos[1] += -dy * MOVEMENT_SPEED;
-    this.clampToView();
   }
 
   /** Apply held WASD/arrow movement for one simulation frame. */
@@ -293,23 +278,21 @@ export class Hero {
     }
 
     this.useItemArmed = 0;
-    if (this.currentItemIndex === 0) {
-      for (let i = 0; i < NUM_HERO_AMMO_TYPES; i++) {
-        if (this.ammoStock[i] > 1.0) {
-          const pwrUp = this.ctx.powerUps.createFromEject(
-            i,
-            this.pos,
-            this.ammoStock[i] / AMMO_REFILL,
-          );
-          this.ctx.powerUps.addPowerUp(pwrUp);
-        }
+    for (let i = 0; i < NUM_HERO_AMMO_TYPES; i++) {
+      if (this.ammoStock[i] > 1.0) {
+        const pwrUp = this.ctx.powerUps.createFromEject(
+          i,
+          this.pos,
+          this.ammoStock[i] / AMMO_REFILL,
+        );
+        this.ctx.powerUps.addPowerUp(pwrUp);
       }
-      this.damage = 0;
-      this.shields = 0;
-      this.lives--;
-      this.noteLifeLost();
-      this.startDeath();
     }
+    this.damage = 0;
+    this.shields = 0;
+    this.lives--;
+    this.noteLifeLost();
+    this.startDeath();
   }
 
   startDeath(): void {
@@ -322,7 +305,7 @@ export class Hero {
       this.dontShow = 130;
     } else {
       this.ctx.state.gameMode = 3;
-      this.ctx.state.heroDeath = 50;
+      this.ctx.state.heroDeath = DEATH_TIME;
     }
   }
 

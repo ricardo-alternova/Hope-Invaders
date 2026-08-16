@@ -1,4 +1,4 @@
-import { HERO_Z, SCREEN_BOUND_X, SCREEN_BOUND_Y, SCREEN_H, SCREEN_W } from '../constants';
+import { HERO_Z, SCREEN_BOUND_X, SCREEN_BOUND_Y } from '../constants';
 import { DEFAULT_VIEW, type ViewSize } from './viewport';
 
 const FOV_RAD = (30 * Math.PI) / 180;
@@ -73,10 +73,3 @@ export function vec3(x = 0, y = 0, z = HERO_Z): Vec3 {
 export function copyVec3(v: Vec3): Vec3 {
   return [v[0], v[1], v[2]];
 }
-
-/** World Y for bottom of visible playfield (sea line). */
-export function seaScreenY(view: ViewSize = DEFAULT_VIEW): number {
-  return worldToScreen(0, -SCREEN_BOUND_Y, HERO_Z, view).y;
-}
-
-export { SCREEN_W, SCREEN_H };
