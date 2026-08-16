@@ -1,8 +1,8 @@
 # Hope Invaders
 
-A web port of [Chromium B.S.U.](https://chromium-bsu.sourceforge.io/) — the fast-paced arcade space shooter where you defend the cargo ship from enemy fighters.
+A Phaser 3 vertical shooter: Max flies the dungeons and keeps the village from going dark.
 
-This is a pixel-faithful TypeScript reimplementation using Phaser 3, running original game assets under the Clarified Artistic License.
+The playable loop is a web port of [Chromium B.S.U.](https://chromium-bsu.sourceforge.io/), rethemed. See **Credits** below.
 
 ## Quick start
 
@@ -15,8 +15,6 @@ Open http://localhost:5173 in your browser.
 
 ## Tests
 
-Unit tests cover core game logic (coords, hero, enemies, power-ups, levels, hi-scores):
-
 ```bash
 npm run test        # run once
 npm run test:watch  # watch mode
@@ -27,14 +25,35 @@ npm run record      # headless playthrough → recordings/playthrough.mp4
 
 | Input | Action |
 |-------|--------|
-| **Enter** (menu) | Start game |
-| WASD / arrow keys | Move fighter (hold) |
-| Left click / Space | Fire weapons |
-| Enter (in-game, twice) | Arm then confirm self-destruct |
-| Double right-click | Self-destruct |
-| 0 (double tap) | Self-destruct |
+| **Enter** (menu) | Start |
+| WASD / arrow keys | Move (hold) |
+| Left click / Space | Fire |
+| Enter (in-game, twice) | Arm, then lantern flash |
+| Double right-click | Lantern flash |
 | P | Pause |
 | Esc | Return to menu |
+
+After a run, type a name on **RECORD HOPE** and press Enter.
+
+## Credits
+
+Hope Invaders would not exist without **Chromium B.S.U.**, the fast arcade space shooter first released in 2000.
+
+**Chromium B.S.U.**
+
+- [Mark B. Allan](https://chromium-bsu.sourceforge.io/) — original game (Clarified Artistic License)
+- [Brian Redfern](https://sourceforge.net/u/brianwredfern/) — sound effects and music, 2008 (MIT/Expat; see `public/assets/wav/license.txt`)
+- Later code and packaging: Tristan Heaven, Paul Wise, Max Horn, Sam Hocevar, and other Chromium B.S.U. contributors
+
+Project site: https://chromium-bsu.sourceforge.io/  
+Source release: https://sourceforge.net/projects/chromium-bsu/
+
+This repository reimplements that loop in TypeScript. Wave timing, enemy types, guns, pickups, scoring, and much of the feel come from the original. Remaining Chromium assets in this tree:
+
+- `public/assets/wav/` — original sounds (Brian Redfern)
+- `public/assets/png/shields.png` — side darken strips
+
+Sprites, menu art, dungeon backdrops, and the Hope story are original to this port. The engine is [Phaser 3](https://phaser.io/).
 
 ## License
 
@@ -42,6 +61,3 @@ Hope Invaders is open source under the **Clarified Artistic License** (SPDX: `Cl
 
 - Game code, Hope art, and remaining Chromium graphics: Clarified Artistic License
 - Sound files from Chromium B.S.U.: **MIT/Expat** (`public/assets/wav/license.txt`)
-
-Chromium B.S.U. by Mark B. Allan and contributors:
-https://chromium-bsu.sourceforge.io/

@@ -32,6 +32,9 @@ export class MenuScene extends Phaser.Scene {
   private startButton!: Phaser.GameObjects.Rectangle;
   private startText!: Phaser.GameObjects.Text;
   private hint!: Phaser.GameObjects.Text;
+  private linkMechanics!: Phaser.GameObjects.Text;
+  private linkArt!: Phaser.GameObjects.Text;
+  private linkSep!: Phaser.GameObjects.Text;
   private controls!: Phaser.GameObjects.Text;
   private license!: Phaser.GameObjects.Text;
 
@@ -124,6 +127,23 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(12);
 
+    const linkStyle = {
+      fontFamily: 'Spectral, serif',
+      fontSize: '15px',
+      color: '#c9a55c',
+    };
+    this.linkMechanics = sharpText(this, 0, 0, COPY.docsMechanics, linkStyle)
+      .setOrigin(1, 0.5)
+      .setDepth(21)
+      .setInteractive({ useHandCursor: true });
+    this.linkSep = sharpText(this, 0, 0, '·', linkStyle).setOrigin(0.5).setDepth(12);
+    this.linkArt = sharpText(this, 0, 0, COPY.docsArt, linkStyle)
+      .setOrigin(0, 0.5)
+      .setDepth(21)
+      .setInteractive({ useHandCursor: true });
+    this.bindDocLink(this.linkMechanics, 'mechanics.html');
+    this.bindDocLink(this.linkArt, 'art.html');
+
     this.controls = sharpText(this, 0, 0, COPY.controls, {
       fontFamily: 'Spectral, serif',
       fontSize: '13px',
@@ -153,7 +173,10 @@ export class MenuScene extends Phaser.Scene {
 
     this.startButton.on('pointerdown', () => this.startGame());
     this.startText.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.startGame());
-    this.input.on('pointerdown', () => this.startGame());
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.docLinkHit(pointer)) return;
+      this.startGame();
+    });
 
     this.unbindKeys = bindSceneKeys([
       globalKeyboard.onKeyDown('Enter', () => this.startGame()),
@@ -218,6 +241,10 @@ export class MenuScene extends Phaser.Scene {
     this.startText.setPosition(playX, this.startButton.y);
     this.hint.setPosition(playX, Math.round(this.startButton.y + 46));
     this.hint.setWordWrapWidth(colW - pad * 2);
+    const linksY = Math.round(this.hint.y + 28);
+    this.linkSep.setPosition(playX, linksY);
+    this.linkMechanics.setPosition(playX - 12, linksY);
+    this.linkArt.setPosition(playX + 12, linksY);
     this.controls.setPosition(playX, Math.round(playY + playH / 2 - 18));
     this.controls.setWordWrapWidth(colW - pad * 2);
 
@@ -230,6 +257,21 @@ export class MenuScene extends Phaser.Scene {
     this.scores.setFontSize(line);
     this.scores.setLineSpacing(Math.max(1, Math.floor(listH / HI_SCORE_HIST) - line));
     this.license.setPosition(Math.round(w / 2), Math.round(h - 18));
+  }
+
+  private bindDocLink(label: Phaser.GameObjects.Text, file: string): void {
+    label.on('pointerover', () => label.setColor('#fff2c2'));
+    label.on('pointerout', () => label.setColor('#c9a55c'));
+    label.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      pointer.event?.stopPropagation();
+      window.location.assign(new URL(file, window.location.href).href);
+    });
+  }
+
+  private docLinkHit(pointer: Phaser.Input.Pointer): boolean {
+    return this.input.hitTestPointer(pointer).some(
+      (obj) => obj === this.linkMechanics || obj === this.linkArt,
+    );
   }
 
   private startGame(): void {

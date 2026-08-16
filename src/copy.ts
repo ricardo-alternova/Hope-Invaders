@@ -3,6 +3,8 @@ export const COPY = {
   tagline: "Max's village has gone dark. Do not let the shadows reach home.",
   start: 'ENTER THE DUNGEONS',
   startHint: 'Click START  ·  Enter  ·  Space',
+  docsMechanics: 'Mechanics',
+  docsArt: 'Art',
   controls: 'WASD / arrows: move  |  Click / Space: fire  |  P: pause',
   license: 'Project Hope — Lumen against the dark',
   tip: 'Do not let the shadows reach the village.',
