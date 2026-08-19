@@ -4,6 +4,14 @@ A Phaser 3 vertical shooter: Max flies the dungeons and keeps the village from g
 
 The playable loop is a web port of [Chromium B.S.U.](https://chromium-bsu.sourceforge.io/), rethemed. See **Credits** below.
 
+![Village square menu](docs/screenshots/menu.jpg)
+
+![Max in the Sinking Cenote](docs/screenshots/play.jpg)
+
+![Mechanics](docs/screenshots/mechanics.jpg)
+
+![Art catalog](docs/screenshots/art.jpg)
+
 ## Quick start
 
 ```bash
