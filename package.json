@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "record": "node scripts/record-playthrough.mjs"
+    "record": "node scripts/record-playthrough.mjs",
+    "screenshots": "node scripts/capture-readme-screenshots.mjs"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

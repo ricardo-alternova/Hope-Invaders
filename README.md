@@ -4,13 +4,22 @@ A Phaser 3 vertical shooter: Max flies the dungeons and keeps the village from g
 
 The playable loop is a web port of [Chromium B.S.U.](https://chromium-bsu.sourceforge.io/), rethemed. See **Credits** below.
 
-![Village square menu](docs/screenshots/menu.jpg)
+## Screenshots
 
-![Max in the Sinking Cenote](docs/screenshots/play.jpg)
+| Village square | Sinking Cenote |
+| --- | --- |
+| ![Village square menu with scoreboard and ENTER THE DUNGEONS](docs/screenshots/menu.jpg) | ![Max firing the wand in the first dungeon](docs/screenshots/play.jpg) |
 
-![Mechanics](docs/screenshots/mechanics.jpg)
+| Mechanics reference | Art catalog |
+| --- | --- |
+| ![Mechanics page — controls, shades, and pickups](docs/screenshots/mechanics.jpg) | ![Art page — loaded textures and lore notes](docs/screenshots/art.jpg) |
 
-![Art catalog](docs/screenshots/art.jpg)
+Regenerate after UI changes (dev server must be running):
+
+```bash
+npm run dev          # in one terminal
+npm run screenshots  # in another
+```
 
 ## Quick start
 
