@@ -104,6 +104,104 @@ describe('EnemyFleet', () => {
   });
 });
 
+describe('Cenote encounters', () => {
+  function encounterCtx() {
+    const ctx = createTestContext({ gameMode: GameMode.Game });
+    ctx.hero.newGame();
+    ctx.levelSpawner.loadLevel();
+    return ctx;
+  }
+
+  it('parks the Sealed Sentinel in the upper playfield', () => {
+    const ctx = encounterCtx();
+    ctx.levelSpawner.startEncounter('sealed-sentinel');
+    const sentinel = ctx.enemyFleet.enemies[0];
+    expect(sentinel.behavior).toBe('sentinel');
+    for (let f = 0; f < 3000; f++) ctx.enemyFleet.update();
+    expect(ctx.enemyFleet.enemies).toContain(sentinel);
+    expect(sentinel.pos[1]).toBeGreaterThan(3.5);
+    expect(ctx.enemyAmmo.shots_list.length).toBeGreaterThan(0);
+  });
+
+  it('shares one health pool across the Drowned Choir', () => {
+    const ctx = encounterCtx();
+    ctx.levelSpawner.startEncounter('drowned-choir');
+    const [a, b, c] = ctx.enemyFleet.enemies;
+    expect(a.group).toBeDefined();
+    expect(a.group).toBe(b.group);
+    expect(b.group).toBe(c.group);
+
+    ctx.enemyFleet.applyDamage(a, a.group!.maxHealth / 2);
+    expect(b.healthFraction).toBeCloseTo(0.5);
+    expect(c.healthFraction).toBeCloseTo(0.5);
+    expect(a.damage).toBe(b.damage);
+  });
+
+  it('releases the whole Choir together and scores it once', () => {
+    const ctx = encounterCtx();
+    ctx.levelSpawner.startEncounter('drowned-choir');
+    const [a] = ctx.enemyFleet.enemies;
+    ctx.enemyFleet.applyDamage(a, a.group!.maxHealth + 1);
+    ctx.enemyFleet.update();
+    expect(ctx.enemyFleet.enemies).toHaveLength(0);
+    expect(ctx.hero.score).toBe(1500);
+  });
+
+  it('releases a beaten Choir even on the frame it reaches the village', () => {
+    const ctx = encounterCtx();
+    ctx.levelSpawner.startEncounter('drowned-choir');
+    const members = [...ctx.enemyFleet.enemies];
+    const lives = ctx.hero.lives;
+    for (const m of members) m.pos[1] = -13.99;
+    ctx.enemyFleet.applyDamage(members[0], members[0].group!.maxHealth + 1);
+    ctx.enemyFleet.update();
+    expect(ctx.hero.lives).toBe(lives);
+    expect(ctx.state.hasAbility('still-water')).toBe(true);
+  });
+
+  it('ends the fight when the health bar reaches exactly zero', () => {
+    const ctx = encounterCtx();
+    ctx.levelSpawner.startEncounter('sealed-sentinel');
+    const sentinel = ctx.enemyFleet.enemies[0];
+    ctx.enemyFleet.applyDamage(sentinel, sentinel.maxHealth);
+    expect(sentinel.healthFraction).toBe(0);
+    ctx.enemyFleet.update();
+    expect(ctx.state.hasAbility('pool-light')).toBe(true);
+  });
+
+  it('keeps the Choir fighting after one member escapes', () => {
+    const ctx = encounterCtx();
+    ctx.levelSpawner.startEncounter('drowned-choir');
+    const lives = ctx.hero.lives;
+    ctx.enemyFleet.enemies[0].pos[1] = -15;
+    ctx.enemyFleet.update();
+    expect(ctx.hero.lives).toBe(lives - 1);
+    expect(ctx.enemyFleet.enemies).toHaveLength(2);
+    expect(ctx.levelSpawner.phase).toBe('encounter');
+    expect(ctx.state.hasAbility('still-water')).toBe(false);
+  });
+
+  it('does not treat a released mini-boss as the level boss', () => {
+    const ctx = encounterCtx();
+    let bossKilled = 0;
+    ctx.onBossKilled = () => bossKilled++;
+    ctx.levelSpawner.startEncounter('sealed-sentinel');
+    ctx.enemyFleet.enemies[0].damage = 1;
+    ctx.enemyFleet.update();
+    expect(bossKilled).toBe(0);
+    expect(ctx.state.hasAbility('pool-light')).toBe(true);
+  });
+
+  it('wears encounter members down under the lantern instead of releasing them at once', () => {
+    const ctx = encounterCtx();
+    ctx.levelSpawner.startEncounter('sealed-sentinel');
+    const sentinel = ctx.enemyFleet.enemies[0];
+    ctx.enemyFleet.applySuperBomb(100, 50);
+    expect(sentinel.isReleased).toBe(false);
+    expect(sentinel.healthFraction).toBeLessThan(1);
+  });
+});
+
 describe('EnemyAmmoSystem', () => {
   it('damages hero on hit', () => {
     const ctx = createTestContext({ gameMode: GameMode.Game });

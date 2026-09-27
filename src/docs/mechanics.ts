@@ -13,6 +13,7 @@ document.querySelector('#app')!.innerHTML = `
       <div class="brand">Hope Invaders</div>
       <nav>
         <a href="./">Play</a>
+        <a href="./gdd">Design</a>
         <a href="./art">Art</a>
         <a href="./mechanics" aria-current="page">Mechanics</a>
       </nav>
@@ -21,6 +22,9 @@ document.querySelector('#app')!.innerHTML = `
       Arcade Chromium B.S.U. loop, rethemed as Max in the dungeons.
       Combat is not killing — shades are released. If a shade (not a gnat) reaches the bottom, the village darkens by one life.
     </p>
+    <p class="callout">
+      This page describes the current build. The Cenote follows the campaign on <a href="./gdd">Design</a>; Web and Garden do not yet, and the run still repeats after the Garden.
+    </p>
 
     <section class="section">
       <h2>How a run goes</h2>
@@ -28,7 +32,7 @@ document.querySelector('#app')!.innerHTML = `
         <div class="step"><strong>Menu</strong><span>Village square. Enter / click starts dungeon 1.</span></div>
         <div class="step"><strong>Dungeon</strong><span>Level N maps to Cenote → Web → Garden, then repeats. Skill creeps up 0.05 per level, cap 1.9.</span></div>
         <div class="step"><strong>Waves</strong><span>Scheduled at boot of the level. Density scales with skill.</span></div>
-        <div class="step"><strong>Boss</strong><span>Last spawn. Releasing it restores the shard (~9s of “Shard restored”).</span></div>
+        <div class="step"><strong>Boss</strong><span>Last spawn. In the Cenote, each chapter ends in an encounter that pauses the waves, and the two minis unlock Pool Light and Still Water (SHIFT) for the rest of the run. Releasing the boss restores the shard (~9s of “Shard restored”).</span></div>
         <div class="step"><strong>Next dungeon</strong><span>Level++, Max resets HOPE/RSV and guns empty except infinite Wand.</span></div>
         <div class="step"><strong>Village goes dark</strong><span>Lives &lt; 0. Enter a name, record Hope restored, then the village square shows the top 20.</span></div>
       </div>
@@ -48,6 +52,8 @@ document.querySelector('#app')!.innerHTML = `
           <tr><td></td><td>RSV</td><td>Resolve / hull. Starts at −500 (full). Hits after HOPE is gone push this toward 0. Repair pickup resets it. At 0 you lose a life.</td></tr>
           <tr><td>${sprite('life')}</td><td>Lives</td><td>Start with 4 extra (5 icons). +1 life every 50,000 Hope restored. Cap 9; overflow dumps the lantern.</td></tr>
           <tr><td>${sprite('useItem00')}</td><td>Lantern flash</td><td>Enter twice (or double right-click). First press arms rings; second dumps a gold dome that releases nearby shades. Also fires on death if lives remain (i-frames while hidden).</td></tr>
+          <tr><td>${sprite('heroAmmo01')}</td><td>Pool Light</td><td>Unlocked by releasing the Sealed Sentinel. Every third Wand volley adds one Lamp bolt, even with an empty Lamp bar. No new key.</td></tr>
+          <tr><td>${sprite('hero')}</td><td>Still Water</td><td>Unlocked by releasing the Drowned Choir. Shift sinks Max for 1 second: shots and shades miss, and she cannot fire. Then 8 seconds of cooldown. Unavailable while the lantern dome is out.</td></tr>
           <tr><td></td><td>I-frames</td><td>12 frames after a hit so overlapping shades do not melt HOPE in one frame.</td></tr>
         </tbody>
       </table>
@@ -65,7 +71,7 @@ document.querySelector('#app')!.innerHTML = `
             <td>110 × skill</td>
             <td>75</td>
             <td>Drifts down, shoots sorrow darts straight down. Reaching y &lt; −14 costs a life.</td>
-            <td>All dungeons, opening waves</td>
+            <td>All dungeons, opening waves. Three of them, sharing one health pool of 900 × skill, are the Drowned Choir in Cenote chapter 2.</td>
           </tr>
           <tr>
             <td>${sprite('enemy01')}</td>
@@ -80,8 +86,8 @@ document.querySelector('#app')!.innerHTML = `
             <td>2 RayGun<br /><span class="key">enemy02</span></td>
             <td>1000 × skill</td>
             <td>1000</td>
-            <td>Slow descent, aimed heavy fire.</td>
-            <td>Cenote, second half</td>
+            <td>Not a wave enemy. As the Sealed Sentinel (2000 × skill, drawn larger) it parks up high, sweeps sorrow darts, and never drifts off the bottom. Releasing it unlocks Pool Light.</td>
+            <td>Cenote chapter 1 encounter</td>
           </tr>
           <tr>
             <td>${sprite('enemy03')}</td>
@@ -141,7 +147,7 @@ document.querySelector('#app')!.innerHTML = `
       <table>
         <thead><tr><th>Level mod 3</th><th>Place</th><th>Cast</th><th>Boss</th></tr></thead>
         <tbody>
-          <tr><td>1, 4, 7…</td><td>Sinking Cenote</td><td>Straight, Omni, RayGun</td><td>${sprite('enemy05')} Boss00</td></tr>
+          <tr><td>1, 4, 7…</td><td>Sinking Cenote</td><td>Straight, Omni in three chapters. Minis: Sealed Sentinel (RayGun), Drowned Choir</td><td>${sprite('enemy05')} Boss00</td></tr>
           <tr><td>2, 5, 8…</td><td>Tangled Web</td><td>Straight, Omni, Gnat swarms</td><td>${sprite('enemy06')} Boss01</td></tr>
           <tr><td>3, 6, 9…</td><td>Hollow Garden</td><td>Straight, Omni, Gnat, Tank/Echo</td><td>${sprite('enemy06')} Boss01</td></tr>
         </tbody>

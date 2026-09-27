@@ -43,6 +43,19 @@ describe('GameState', () => {
     expect(state.gameSkill).toBe(state.gameSkillValue);
   });
 
+  it('keeps unlocked abilities across dungeons and clears them for a new run', () => {
+    const state = new GameState();
+    state.unlocked.add('pool-light');
+    state.unlocked.add('still-water');
+    state.gameLevel = 2;
+    state.resetForLevel();
+    expect(state.hasAbility('pool-light')).toBe(true);
+    expect(state.hasAbility('still-water')).toBe(true);
+    state.resetForNewGame();
+    expect(state.hasAbility('pool-light')).toBe(false);
+    expect(state.hasAbility('still-water')).toBe(false);
+  });
+
   it('resetForNewGame initializes a fresh run', () => {
     const state = new GameState();
     state.gameLevel = 5;

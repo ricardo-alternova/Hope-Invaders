@@ -1,7 +1,9 @@
-import { EnemyType, PowerUpType } from '../constants';
+import { EnemyType, GameMode, PowerUpType } from '../constants';
 import { frand, srand } from '../utils/rng';
 import { vec3 } from '../utils/coords';
+import type { Enemy, EncounterGroup, EnemyOutcome } from './Enemy';
 import type { GameContext } from './GameContext';
+import type { AbilityId } from './GameState';
 
 interface ScheduledItem {
   frame: number;
@@ -12,10 +14,47 @@ interface ScheduledItem {
   power?: number;
 }
 
+export const CENOTE_ENCOUNTERS = ['sealed-sentinel', 'drowned-choir', 'grotto-octopus'] as const;
+export type EncounterId = (typeof CENOTE_ENCOUNTERS)[number];
+
+export const ENCOUNTER_UNLOCKS: Partial<Record<EncounterId, AbilityId>> = {
+  'sealed-sentinel': 'pool-light',
+  'drowned-choir': 'still-water',
+};
+
+/** Chapter boundaries in wave frames. Each chapter ends in the matching encounter. */
+const CENOTE_CHAPTER_BOUNDS = [0, 3600, 7200, 12000];
+/** Longest wait for leftover wave shades to clear before an encounter starts anyway. */
+const DRAIN_LIMIT = 500;
+const PICKUP_HORIZON = 30000;
+
+export type ChapterPhase = 'waves' | 'draining' | 'encounter' | 'complete';
+
+interface Chapter {
+  waves: ScheduledItem[];
+  length: number;
+  encounter: EncounterId;
+}
+
+export interface EncounterStatus {
+  id: EncounterId;
+  fraction: number;
+}
+
 export class LevelSpawner {
   private schedule: ScheduledItem[] = [];
   private loaded = false;
   private ctx!: GameContext;
+
+  private chapters: Chapter[] = [];
+  private chapterIndex = 0;
+  private chapterFrame = 0;
+  private drainFrames = 0;
+  private chapterPhase: ChapterPhase | null = null;
+  private encounterId: EncounterId | null = null;
+  private encounterMembers = new Set<Enemy>();
+  /** The octopus reached the village. Bring it back next tick instead of ending the level. */
+  private pendingEncounter: EncounterId | null = null;
 
   constructor(ctx: GameContext) {
     this.ctx = ctx;
@@ -26,6 +65,7 @@ export class LevelSpawner {
   }
 
   loadLevel(): void {
+    this.clearChapters();
     this.schedule = [];
     this.loaded = true;
     const levelIndex = (this.ctx.state.gameLevel - 1) % 3;
@@ -46,6 +86,34 @@ export class LevelSpawner {
   reset(): void {
     this.schedule = [];
     this.loaded = false;
+    this.clearChapters();
+  }
+
+  private clearChapters(): void {
+    this.chapters = [];
+    this.chapterIndex = 0;
+    this.chapterFrame = 0;
+    this.drainFrames = 0;
+    this.chapterPhase = null;
+    this.encounterId = null;
+    this.encounterMembers.clear();
+    this.pendingEncounter = null;
+  }
+
+  /** Null for dungeons that still run one continuous schedule. */
+  get phase(): ChapterPhase | null {
+    return this.chapterPhase;
+  }
+
+  get chapter(): number {
+    return this.chapterIndex;
+  }
+
+  get encounterStatus(): EncounterStatus | null {
+    if (this.chapterPhase !== 'encounter' || !this.encounterId) return null;
+    const first = this.encounterMembers.values().next().value;
+    if (!first) return null;
+    return { id: this.encounterId, fraction: first.healthFraction };
   }
 
   tick(): void {
@@ -53,16 +121,123 @@ export class LevelSpawner {
     const frame = this.ctx.state.gameFrame;
 
     while (this.schedule.length > 0 && this.schedule[0].frame <= frame) {
-      const item = this.schedule.shift()!;
-      if (item.kind === 'enemy' && item.enemyType !== undefined) {
-        const pos = item.pos ?? vec3(0, 10, 25);
-        this.ctx.enemyFleet.addEnemy(item.enemyType, pos);
-      } else if (item.kind === 'powerup' && item.powerUpType !== undefined) {
-        const pos = item.pos ?? vec3(srand() * 8, 10, 25);
-        const pwr = this.ctx.powerUps.create(item.powerUpType, pos, item.power ?? 1);
-        this.ctx.powerUps.addPowerUp(pwr);
+      this.spawn(this.schedule.shift()!);
+    }
+
+    if (this.pendingEncounter) {
+      const id = this.pendingEncounter;
+      this.pendingEncounter = null;
+      this.startEncounter(id);
+    }
+
+    if (this.chapterPhase) this.tickChapters();
+  }
+
+  private spawn(item: ScheduledItem): void {
+    if (item.kind === 'enemy' && item.enemyType !== undefined) {
+      const pos = item.pos ?? vec3(0, 10, 25);
+      this.ctx.enemyFleet.addEnemy(item.enemyType, pos);
+    } else if (item.kind === 'powerup' && item.powerUpType !== undefined) {
+      const pos = item.pos ?? vec3(srand() * 8, 10, 25);
+      const pwr = this.ctx.powerUps.create(item.powerUpType, pos, item.power ?? 1);
+      this.ctx.powerUps.addPowerUp(pwr);
+    }
+  }
+
+  private tickChapters(): void {
+    const chapter = this.chapters[this.chapterIndex];
+    if (!chapter) return;
+
+    if (this.chapterPhase === 'waves') {
+      this.chapterFrame++;
+      while (chapter.waves.length > 0 && chapter.waves[0].frame <= this.chapterFrame) {
+        this.spawn(chapter.waves.shift()!);
+      }
+      if (chapter.waves.length === 0 && this.chapterFrame >= chapter.length) {
+        this.chapterPhase = 'draining';
+        this.drainFrames = 0;
+      }
+    } else if (this.chapterPhase === 'draining') {
+      this.drainFrames++;
+      const busy = this.ctx.enemyFleet.enemies.some((e) => e.type !== EnemyType.Gnat);
+      if (!busy || this.drainFrames >= DRAIN_LIMIT) {
+        this.startEncounter(chapter.encounter);
       }
     }
+  }
+
+  startEncounter(id: EncounterId): void {
+    this.chapterPhase = 'encounter';
+    this.encounterId = id;
+    this.encounterMembers.clear();
+    const skill = this.ctx.state.gameSkill;
+    const fleet = this.ctx.enemyFleet;
+
+    if (id === 'sealed-sentinel') {
+      const sentinel = fleet.addEnemy(EnemyType.RayGun, vec3(0, 11, 25));
+      sentinel.encounter = id;
+      sentinel.behavior = 'sentinel';
+      sentinel.scaleBy(1.5);
+      sentinel.damage = -2000 * skill;
+      sentinel.maxHealth = 2000 * skill;
+      this.encounterMembers.add(sentinel);
+    } else if (id === 'drowned-choir') {
+      const group: EncounterGroup = { damage: -900 * skill, maxHealth: 900 * skill, score: 1500, scored: false };
+      for (const x of [-4, 0, 4]) {
+        const member = fleet.addEnemy(EnemyType.Straight, vec3(x, 10, 25), 0);
+        member.encounter = id;
+        member.behavior = 'choir';
+        member.group = group;
+        member.scaleBy(1.35);
+        this.encounterMembers.add(member);
+      }
+    } else {
+      const octopus = fleet.addEnemy(EnemyType.Boss00, vec3(0, 15, 25));
+      octopus.encounter = id;
+      this.encounterMembers.add(octopus);
+    }
+
+    this.ctx.onEncounterStart(id);
+  }
+
+  /** Called by the fleet when an encounter member is released or reaches the village. */
+  noteOutcome(enemy: Enemy, outcome: EnemyOutcome): void {
+    if (!this.encounterMembers.delete(enemy)) return;
+    if (this.encounterMembers.size > 0) return;
+    this.resolveEncounter(outcome);
+  }
+
+  private resolveEncounter(lastOutcome: EnemyOutcome): void {
+    const id = this.encounterId;
+    this.encounterId = null;
+    if (!id) return;
+
+    const released = lastOutcome === 'released';
+    const { state } = this.ctx;
+    if (released) {
+      const unlock = ENCOUNTER_UNLOCKS[id];
+      if (unlock && !state.hasAbility(unlock)) {
+        state.unlocked.add(unlock);
+        this.ctx.onAbilityUnlocked(unlock);
+      }
+    }
+
+    // Releasing the octopus already finished the level through the fleet's boss callback.
+    // Letting it reach the village costs a life and the fight starts over.
+    if (!released && id === 'grotto-octopus') {
+      this.chapterPhase = 'encounter';
+      if (state.gameMode === GameMode.Game) this.pendingEncounter = id;
+      return;
+    }
+
+    if (this.chapterIndex >= this.chapters.length - 1) {
+      this.chapterPhase = 'complete';
+      return;
+    }
+
+    this.chapterIndex++;
+    this.chapterFrame = 0;
+    this.chapterPhase = 'waves';
   }
 
   private addStraightWave(start: number, end: number, density = 1.0): void {
@@ -186,6 +361,7 @@ export class LevelSpawner {
     }
   }
 
+  /** Sinking Cenote: three wave chapters, each closed by an encounter. */
   private loadLevel1(): void {
     const numIterations = 12000;
     let i = 600;
@@ -204,26 +380,25 @@ export class LevelSpawner {
       i += waveDuration + 50 + Math.floor(50 * frand());
     }
 
-    // Ray gun halfway
-    for (let f = numIterations / 2; f < i - 1000; f += Math.floor(60 * (2 - this.ctx.state.gameSkill))) {
-      this.schedule.push({
-        frame: f,
-        kind: 'enemy',
-        enemyType: EnemyType.RayGun,
-        pos: vec3(srand() * 8, 10, 25),
-      });
-    }
-
-    // Boss
-    this.schedule.push({
-      frame: i + 75,
-      kind: 'enemy',
-      enemyType: EnemyType.Boss00,
-      pos: vec3(0, 15, 25),
+    const waves = this.schedule.sort((a, b) => a.frame - b.frame);
+    this.schedule = [];
+    this.chapters = CENOTE_ENCOUNTERS.map((encounter, k) => {
+      const start = CENOTE_CHAPTER_BOUNDS[k];
+      const end = CENOTE_CHAPTER_BOUNDS[k + 1];
+      return {
+        encounter,
+        length: end - start,
+        waves: waves
+          .filter((w) => w.frame >= start && w.frame < end)
+          .map((w) => ({ ...w, frame: w.frame - start })),
+      };
     });
+    this.chapterIndex = 0;
+    this.chapterFrame = 0;
+    this.chapterPhase = 'waves';
 
-    this.addAmmunition(0, numIterations + 9000);
-    this.addPowerUps(0, numIterations + 9000);
+    this.addAmmunition(0, PICKUP_HORIZON);
+    this.addPowerUps(0, PICKUP_HORIZON);
   }
 
   private loadLevel2(): void {

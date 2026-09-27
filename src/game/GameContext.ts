@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 import { wavKey } from '../assets';
 import type { ExplosionSystem } from './Explosions';
 import type { EnemyAmmoSystem, EnemyFleet } from './Enemy';
-import type { GameState } from './GameState';
+import type { AbilityId, GameState } from './GameState';
 import type { Hero } from './Hero';
 import type { HeroAmmoSystem } from './HeroAmmo';
 import type { LevelSpawner } from './LevelSpawner';
@@ -34,6 +34,8 @@ export class GameContext {
   onBossKilled: () => void = () => {};
   onGameOver: () => void = () => {};
   onLifeLost: () => void = () => {};
+  onEncounterStart: (id: string) => void = () => {};
+  onAbilityUnlocked: (id: AbilityId) => void = () => {};
 
   constructor(
     state: GameState,

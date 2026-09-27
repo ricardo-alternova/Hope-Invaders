@@ -14,6 +14,17 @@ import { copyVec3, manhattanDist, type Vec3 } from '../utils/coords';
 
 let nextEnemyId = 0;
 
+/** One health pool shared by several enemies. Released together when it goes positive. */
+export interface EncounterGroup {
+  damage: number;
+  maxHealth: number;
+  score: number;
+  scored: boolean;
+}
+
+export type EnemyBehavior = 'sentinel' | 'choir';
+export type EnemyOutcome = 'released' | 'escaped';
+
 export class Enemy {
   id = nextEnemyId++;
   type: EnemyType;
@@ -32,6 +43,10 @@ export class Enemy {
   lastMoveY = 0;
   shootVec: Vec3 = [0, -0.2, 0];
   alive = true;
+  maxHealth = 0;
+  encounter?: string;
+  behavior?: EnemyBehavior;
+  group?: EncounterGroup;
 
   ctx?: GameContext;
 
@@ -94,9 +109,27 @@ export class Enemy {
         break;
     }
 
+    this.maxHealth = -this.damage;
+
     const xBound = SCREEN_BOUND_X - 2;
     if (this.pos[0] < -xBound) this.pos[0] = -xBound;
     if (this.pos[0] > xBound) this.pos[0] = xBound;
+  }
+
+  /** Grow the sprite and hitbox together. */
+  scaleBy(factor: number): void {
+    this.size = [this.size[0] * factor, this.size[1] * factor];
+  }
+
+  /** Remaining health from 0 to 1, reading the shared pool when there is one. */
+  get healthFraction(): number {
+    if (this.group) return Math.max(0, Math.min(1, -this.group.damage / this.group.maxHealth));
+    if (this.maxHealth <= 0) return 0;
+    return Math.max(0, Math.min(1, -this.damage / this.maxHealth));
+  }
+
+  get isReleased(): boolean {
+    return this.group ? this.group.damage >= 0 : this.damage >= 0;
   }
 
   checkHit(bulletPos: Vec3, bulletHalfW: number): boolean {
@@ -119,6 +152,17 @@ export class Enemy {
     const damp = (1.0 - speedAdj) + speedAdj * 0.7;
     this.secondaryMove[0] *= damp;
     this.secondaryMove[1] *= damp;
+
+    if (this.behavior === 'sentinel') {
+      this.updateSentinel(speedAdj);
+      this.clampX();
+      return;
+    }
+    if (this.behavior === 'choir') {
+      this.updateChoir(speedAdj, skill);
+      this.clampX();
+      return;
+    }
 
     switch (this.type) {
       case EnemyType.Straight:
@@ -231,6 +275,42 @@ export class Enemy {
     if (!this.shootInterval) {
       this.shootInterval = Math.floor((40 + frand() * 80) / speedAdj);
       this.ctx?.enemyAmmo.addAmmo(3, copyVec3(this.pos), [0, -0.25, 0]);
+    }
+  }
+
+  /** Parks in the upper playfield and sweeps side to side. It never drifts toward the village. */
+  private updateSentinel(speedAdj: number): void {
+    const parkY = 4.5;
+    this.pos[1] += (parkY - this.pos[1]) * 0.03 * speedAdj;
+    this.pos[0] = 6 * Math.sin(this.age * 0.012);
+
+    const cycle = this.age % 120;
+    this.preFire = cycle > 100 ? (cycle - 100) / 20 : 0;
+
+    if (!(this.age % 18)) {
+      this.ctx?.enemyAmmo.addAmmo(3, [this.pos[0], this.pos[1] - 1.2, this.pos[2]], [0, -0.25, 0]);
+    }
+    if (cycle < 30 && !(cycle % 10)) {
+      for (const vx of [-0.08, 0, 0.08]) {
+        this.ctx?.enemyAmmo.addAmmo(0, [this.pos[0], this.pos[1] - 1.2, this.pos[2]], [vx, -0.2, 0]);
+      }
+    }
+  }
+
+  /** Slow, swaying descent. Members share one health pool through `group`. */
+  private updateChoir(speedAdj: number, skill: number): void {
+    this.pos[1] -= speedAdj * 0.018 * skill;
+    this.pos[0] += Math.sin(this.age * 0.03 + this.id) * 0.02 * speedAdj;
+
+    if (this.shootInterval < 10) {
+      this.preFire = (10 - this.shootInterval) / 10;
+    } else {
+      this.preFire = 0;
+    }
+
+    if (this.shootInterval <= 0) {
+      this.shootInterval = Math.floor((60 + frand() * 90) / speedAdj);
+      this.ctx?.enemyAmmo.addAmmo(0, [this.pos[0], this.pos[1] - 0.9, this.pos[2]], [0, -0.2, 0]);
     }
   }
 
@@ -413,13 +493,15 @@ export class EnemyFleet {
         this.enemyWarning = Math.max(this.enemyWarning, 1.0 - (enemy.pos[1] + 14) / 6);
       }
 
-      if (enemy.pos[1] < -14 && enemy.type !== EnemyType.Gnat) {
-        hero.loseLife();
+      if (enemy.isReleased) {
+        this.destroyEnemy(enemy);
+        this.reportOutcome(enemy, 'released');
         continue;
       }
 
-      if (enemy.damage > 0) {
-        this.destroyEnemy(enemy);
+      if (enemy.pos[1] < -14 && enemy.type !== EnemyType.Gnat) {
+        hero.loseLife();
+        this.reportOutcome(enemy, 'escaped');
         continue;
       }
 
@@ -428,14 +510,11 @@ export class EnemyFleet {
         const diffY = hero.pos[1] - enemy.pos[1];
         const dist = Math.abs(diffX) + Math.abs(diffY);
         if (dist < enemy.size[0] + hero.size[0]) {
-          let power = -enemy.damage * 0.5;
+          const pool = enemy.group ? enemy.group.damage : enemy.damage;
+          let power = -pool * 0.5;
           if (power > 35) power = 35;
           hero.doDamage(power);
-          if (hero.shields > HERO_SHIELDS) {
-            enemy.damage += 70;
-          } else {
-            enemy.damage += 40;
-          }
+          this.applyDamage(enemy, hero.shields > HERO_SHIELDS ? 70 : 40);
           enemy.secondaryMove[0] -= diffX * enemy.collisionMove;
           enemy.secondaryMove[1] -= diffY * (enemy.collisionMove * 0.5);
           hero.secondaryMove[0] = diffX * power * 0.03;
@@ -449,15 +528,38 @@ export class EnemyFleet {
     this.enemies = survivors;
   }
 
+  /** Hero shots, collisions, and the lantern all damage through here so shared pools stay in sync. */
+  applyDamage(enemy: Enemy, amount: number): void {
+    if (enemy.group) {
+      enemy.group.damage += amount;
+    } else {
+      enemy.damage += amount;
+    }
+  }
+
   private destroyEnemy(enemy: Enemy): void {
     const isBoss = enemy.isBoss;
-    this.ctx.explosions.addEnemyExplosion(enemy.pos, isBoss ? 'big' : enemy.type <= 1 ? 'pop' : 'std');
-    this.ctx.audio.play(isBoss ? 'exploBig' : enemy.type <= 1 ? 'exploPop' : 'exploStd');
-    this.ctx.hero.addScore(enemy.scoreValue);
+    const big = isBoss || enemy.encounter !== undefined;
+    this.ctx.explosions.addEnemyExplosion(enemy.pos, big ? 'big' : enemy.type <= 1 ? 'pop' : 'std');
+    this.ctx.audio.play(big ? 'exploBig' : enemy.type <= 1 ? 'exploPop' : 'exploStd');
+
+    if (enemy.group) {
+      if (!enemy.group.scored) {
+        enemy.group.scored = true;
+        this.ctx.hero.addScore(enemy.group.score);
+      }
+    } else {
+      this.ctx.hero.addScore(enemy.scoreValue);
+    }
 
     if (isBoss) {
       this.ctx.onBossKilled();
     }
+  }
+
+  private reportOutcome(enemy: Enemy, outcome: EnemyOutcome): void {
+    enemy.alive = false;
+    if (enemy.encounter) this.ctx.levelSpawner.noteOutcome(enemy, outcome);
   }
 
   applySuperBomb(radius: number, superBomb: number): void {
@@ -466,6 +568,8 @@ export class EnemyFleet {
       if (dist < radius || enemy.pos[1] < -11) {
         if (enemy.isBoss) {
           enemy.damage += 5000;
+        } else if (enemy.encounter) {
+          this.applyDamage(enemy, 50);
         } else {
           enemy.damage = 1;
         }

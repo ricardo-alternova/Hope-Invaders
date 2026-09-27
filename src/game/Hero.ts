@@ -1,6 +1,7 @@
 import {
   AMMO_REFILL,
   DEATH_TIME,
+  GameMode,
   HERO_DAMAGE,
   HERO_HIT_IFRAMES,
   HERO_SHIELDS,
@@ -8,7 +9,10 @@ import {
   KEYBOARD_MOVE_SPEED,
   NUM_HERO_AMMO_TYPES,
   PLAYFIELD_PAD,
+  POOL_LIGHT_EVERY,
   SCORE_STEP,
+  STILL_WATER_COOLDOWN,
+  STILL_WATER_FRAMES,
 } from '../constants';
 import { clamp, screenToWorld, type Vec3, vec3, worldSizeToPixels, worldToScreen } from '../utils/coords';
 import { DEFAULT_VIEW, type ViewSize } from '../utils/viewport';
@@ -30,6 +34,9 @@ export class Hero {
   dontShow = 0;
   hurtIFrames = 0;
   useItemArmed = 0;
+  stillWater = 0;
+  stillWaterCooldown = 0;
+  wandVolleys = 0;
 
   gunTrigger = false;
   gunSwap = false;
@@ -59,6 +66,9 @@ export class Hero {
     this.pos = vec3(0, -3, HERO_Z);
     this.dontShow = 0;
     this.hurtIFrames = 0;
+    this.stillWater = 0;
+    this.stillWaterCooldown = 0;
+    this.wandVolleys = 0;
     this.damage = HERO_DAMAGE;
     this.shields = HERO_SHIELDS;
     this.secondaryMove = [0, 0];
@@ -180,9 +190,9 @@ export class Hero {
   }
 
   shootGun(): void {
-    if (!this.gunTrigger || this.dontShow) return;
-    const { heroAmmo } = this.ctx;
-    const speedAdj = this.ctx.state.speedAdj;
+    if (!this.gunTrigger || this.dontShow || this.stillWater > 0) return;
+    const { heroAmmo, state } = this.ctx;
+    const speedAdj = state.speedAdj;
 
     if (this.gunPause[0] <= 0) {
       this.gunPause[0] = 5;
@@ -193,6 +203,11 @@ export class Hero {
         heroAmmo.addAmmo(0, [this.pos[0] + 0.45, this.pos[1] + 0.2, this.pos[2]]);
         heroAmmo.addAmmo(0, [this.pos[0] - 0.45, this.pos[1] + 0.2, this.pos[2]]);
         this.ammoStock[0] -= 0.5;
+      }
+      this.wandVolleys++;
+      if (state.hasAbility('pool-light') && this.wandVolleys % POOL_LIGHT_EVERY === 0) {
+        heroAmmo.addAmmo(1, [this.pos[0], this.pos[1] + 1.1, this.pos[2]]);
+        this.gunFlash[1] = 10;
       }
     }
 
@@ -295,13 +310,26 @@ export class Hero {
     this.startDeath();
   }
 
+  /** Still Water: sink for a moment. Returns whether it started. */
+  useStillWater(): boolean {
+    const { state } = this.ctx;
+    if (!state.hasAbility('still-water')) return false;
+    if (state.gameMode !== GameMode.Game || state.gamePause) return false;
+    if (this.superBomb || this.dontShow > 0) return false;
+    if (this.stillWater > 0 || this.stillWaterCooldown > 0) return false;
+    this.stillWater = STILL_WATER_FRAMES;
+    return true;
+  }
+
   startDeath(): void {
     this.ctx.explosions.addHeroDeath(this.pos);
     this.ctx.audio.play('exploBig');
+    const cooldown = this.stillWater > 0 ? STILL_WATER_COOLDOWN : this.stillWaterCooldown;
 
     if (this.lives >= 0) {
       this.superBomb = 1;
       this.reset();
+      this.stillWaterCooldown = cooldown;
       this.dontShow = 130;
     } else {
       this.ctx.state.gameMode = 3;
@@ -324,6 +352,16 @@ export class Hero {
     }
     if (this.hurtIFrames > 0) {
       this.hurtIFrames -= speedAdj;
+    }
+
+    if (this.stillWater > 0) {
+      this.stillWater -= speedAdj;
+      if (this.stillWater <= 0) {
+        this.stillWater = 0;
+        this.stillWaterCooldown = STILL_WATER_COOLDOWN;
+      }
+    } else if (this.stillWaterCooldown > 0) {
+      this.stillWaterCooldown = Math.max(0, this.stillWaterCooldown - speedAdj);
     }
 
     if (this.shields >= HERO_SHIELDS && this.shields > 500) {
@@ -373,6 +411,6 @@ export class Hero {
   }
 
   get isInvulnerable(): boolean {
-    return this.dontShow > 0 || this.superBomb > 0 || this.hurtIFrames > 0;
+    return this.dontShow > 0 || this.superBomb > 0 || this.hurtIFrames > 0 || this.stillWater > 0;
   }
 }

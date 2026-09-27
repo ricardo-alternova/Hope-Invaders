@@ -46,9 +46,9 @@ export const ART_ITEMS: ArtItem[] = [
   { key: 'heroAmmoFlash01', group: 'weapons', title: 'Lamp flare', used: 'Muzzle while firing Lamp', lore: 'Lantern flare.' },
   { key: 'heroAmmoFlash02', group: 'weapons', title: 'Amu glint', used: 'Muzzle while firing Amu', lore: 'Amulet glint.' },
 
-  { key: 'enemy00', group: 'shades', title: 'Straight — kelp shade', used: 'Type 0, all dungeons, early waves', lore: 'Cenote kelp / tentacles. Faces down. Cyan rim, gold veins on five fronds.' },
+  { key: 'enemy00', group: 'shades', title: 'Straight — kelp shade', used: 'Type 0, all dungeons, early waves; also the Drowned Choir (three, shared health)', lore: 'Cenote kelp / tentacles. Faces down. Cyan rim, gold veins on five fronds.' },
   { key: 'enemy01', group: 'shades', title: 'Omni — web moth', used: 'Type 1, tracks Max, shoots at her', lore: 'Tangled Web moth. Mauve wings, cyan rim, a few silk bands. Worry, rumination.' },
-  { key: 'enemy02', group: 'shades', title: 'RayGun — sealed light', used: 'Type 2, Cenote mid-level', lore: 'Stone sentinel + capped cyan shaft.' },
+  { key: 'enemy02', group: 'shades', title: 'RayGun — sealed light', used: 'Type 2, Sealed Sentinel (Cenote chapter 1). Not a wave enemy.', lore: 'Stone sentinel + capped cyan shaft.' },
   { key: 'enemy03', group: 'shades', title: 'Tank — Hollow Echo', used: 'Type 3, Garden waves', lore: 'Wilted villager / festival ghost.' },
   { key: 'enemy03-extra', group: 'shades', title: 'Echo petal', used: 'Prefire overlay on Tank', lore: 'Gold petal that should return.' },
   { key: 'enemy04', group: 'shades', title: 'Gnat — sorrow motes', used: 'Type 4, Web/Garden swarms', lore: 'Tiny worry-dust. Must stay small. Reaching the bottom does not darken the village.' },

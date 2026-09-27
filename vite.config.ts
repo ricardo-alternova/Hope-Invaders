@@ -5,6 +5,7 @@ function hopeSlugs(): Plugin {
     const path = url?.split('?')[0];
     if (path === '/art' || path === '/art/') return '/art.html';
     if (path === '/mechanics' || path === '/mechanics/') return '/mechanics.html';
+    if (path === '/gdd' || path === '/gdd/') return '/gdd.html';
     return url;
   };
   const middleware = (req: { url?: string }, _res: unknown, next: () => void) => {
@@ -35,6 +36,7 @@ export default defineConfig({
         main: 'index.html',
         art: 'art.html',
         mechanics: 'mechanics.html',
+        gdd: 'gdd.html',
       },
     },
   },

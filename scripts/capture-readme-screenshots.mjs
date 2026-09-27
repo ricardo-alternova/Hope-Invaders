@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Capture README screenshots (menu, play, mechanics, art).
+ * Capture README screenshots (menu, play, mechanics, art, design).
  * Requires the dev server: npm run dev
  */
 import { mkdir } from 'node:fs/promises';
@@ -53,6 +53,10 @@ try {
   await page.goto(`${origin}/art`, { waitUntil: 'networkidle' });
   await sleep(700);
   await jpeg(page, 'art.jpg');
+
+  await page.goto(`${origin}/gdd`, { waitUntil: 'networkidle' });
+  await sleep(500);
+  await jpeg(page, 'gdd.jpg');
 
   console.log(`Wrote ${outDir}`);
 } finally {

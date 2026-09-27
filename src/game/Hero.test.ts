@@ -238,6 +238,119 @@ describe('Hero', () => {
     });
   });
 
+  describe('Pool Light', () => {
+    function lampBolts(c: ReturnType<typeof ctx>): number {
+      return c.heroAmmo.bullets.filter((b) => b.type === 1).length;
+    }
+
+    function fireVolleys(c: ReturnType<typeof ctx>, volleys: number): void {
+      c.hero.fireGun(true);
+      for (let v = 0; v < volleys; v++) {
+        c.hero.gunPause[0] = 0;
+        c.hero.shootGun();
+      }
+    }
+
+    it('does nothing before it is unlocked', () => {
+      const c = ctx();
+      c.hero.newGame();
+      fireVolleys(c, 6);
+      expect(lampBolts(c)).toBe(0);
+    });
+
+    it('adds one Lamp bolt every third Wand volley without spending Lamp stock', () => {
+      const c = ctx();
+      c.hero.newGame();
+      c.state.unlocked.add('pool-light');
+      fireVolleys(c, 2);
+      expect(lampBolts(c)).toBe(0);
+      fireVolleys(c, 1);
+      expect(lampBolts(c)).toBe(1);
+      fireVolleys(c, 3);
+      expect(lampBolts(c)).toBe(2);
+      expect(c.hero.ammoStock[1]).toBe(0);
+    });
+  });
+
+  describe('Still Water', () => {
+    function unlocked() {
+      const c = ctx();
+      c.hero.newGame();
+      c.state.unlocked.add('still-water');
+      return c;
+    }
+
+    it('needs the unlock', () => {
+      const c = ctx();
+      c.hero.newGame();
+      expect(c.hero.useStillWater()).toBe(false);
+      expect(c.hero.stillWater).toBe(0);
+    });
+
+    it('does nothing while paused', () => {
+      const c = unlocked();
+      c.state.gamePause = true;
+      expect(c.hero.useStillWater()).toBe(false);
+      expect(c.hero.stillWater).toBe(0);
+    });
+
+    it('sinks Max for one second, then starts an eight second cooldown', () => {
+      const c = unlocked();
+      expect(c.hero.useStillWater()).toBe(true);
+      expect(c.hero.isInvulnerable).toBe(true);
+      for (let f = 0; f < 49; f++) c.hero.update();
+      expect(c.hero.stillWater).toBeGreaterThan(0);
+      c.hero.update();
+      expect(c.hero.stillWater).toBe(0);
+      expect(c.hero.stillWaterCooldown).toBe(400);
+      expect(c.hero.isInvulnerable).toBe(false);
+      expect(c.hero.useStillWater()).toBe(false);
+      for (let f = 0; f < 400; f++) c.hero.update();
+      expect(c.hero.useStillWater()).toBe(true);
+    });
+
+    it('blocks firing while submerged', () => {
+      const c = unlocked();
+      c.hero.useStillWater();
+      c.hero.fireGun(true);
+      c.hero.shootGun();
+      expect(c.heroAmmo.bullets.length).toBe(0);
+    });
+
+    it('lets sorrow shots and shades pass through', () => {
+      const c = unlocked();
+      c.hero.pos = [0, 0, 25];
+      c.hero.useStillWater();
+      const shields = c.hero.shields;
+      c.enemyAmmo.addAmmo(0, [0, 0, 25], [0, -0.2, 0]);
+      c.enemyAmmo.update();
+      c.enemyFleet.addEnemy(0, [0, 0, 25]);
+      c.enemyFleet.update();
+      expect(c.hero.shields).toBe(shields);
+    });
+
+    it('is unavailable while the lantern dome is out', () => {
+      const c = unlocked();
+      c.hero.superBomb = 10;
+      expect(c.hero.useStillWater()).toBe(false);
+    });
+
+    it('keeps the cooldown when Max comes back from a hit', () => {
+      const c = unlocked();
+      c.hero.useStillWater();
+      for (let f = 0; f < 50; f++) c.hero.update();
+      for (let f = 0; f < 50; f++) c.hero.update();
+      expect(c.hero.stillWaterCooldown).toBe(350);
+      c.hero.shields = 0;
+      c.hero.damage = -1;
+      c.hero.doDamage(5);
+      expect(c.hero.lives).toBe(3);
+      expect(c.hero.stillWaterCooldown).toBe(350);
+      c.hero.dontShow = 0;
+      expect(c.hero.useStillWater()).toBe(false);
+    });
+  });
+
   describe('isInvulnerable', () => {
     it('is true during respawn blink and super bomb', () => {
       const c = ctx();

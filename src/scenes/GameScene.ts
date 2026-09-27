@@ -9,6 +9,7 @@ import {
   POWERUP_COLORS,
 } from '../constants';
 import { COPY } from '../copy';
+import { abilityById, encounterById } from '../docs/campaign';
 import { dungeonTextureKeys, FX_AURA_KEY, FX_MIST_KEY, FX_MOTE_KEY } from '../fx/dungeonTiles';
 import { shadePose } from '../fx/shadeAnim';
 import { EnemyAmmoSystem, EnemyFleet } from '../game/Enemy';
@@ -49,6 +50,10 @@ export class GameScene extends Phaser.Scene {
   private hudPause!: Phaser.GameObjects.Text;
   private hudWarning!: Phaser.GameObjects.Rectangle;
   private hudMessage!: Phaser.GameObjects.Text;
+  private hudEncounter!: Phaser.GameObjects.Text;
+  private hudAbilities!: Phaser.GameObjects.Text;
+  private bannerText = '';
+  private bannerAge = 0;
   private hudGraphics!: Phaser.GameObjects.Graphics;
   private hudAmmoIcons: Phaser.GameObjects.Text[] = [];
   private hudShieldIcon!: Phaser.GameObjects.Text;
@@ -138,6 +143,14 @@ export class GameScene extends Phaser.Scene {
 
     this.ctx.onLifeLost = () => this.playLifeLostFx();
 
+    this.ctx.onEncounterStart = () => {
+      this.hudMessage.setText('');
+    };
+
+    this.ctx.onAbilityUnlocked = (id) => {
+      this.showBanner(COPY.abilityUnlocked[id]);
+    };
+
     const { w, h } = this.view();
 
     this.hudScore = sharpText(this, 16, h - 28, '0000000', {
@@ -172,6 +185,22 @@ export class GameScene extends Phaser.Scene {
       stroke: '#0e1430',
       strokeThickness: 3,
     }).setOrigin(0.5).setDepth(110);
+
+    this.hudEncounter = sharpText(this, w / 2, 70, '', {
+      fontFamily: 'Cormorant Garamond, serif',
+      fontSize: `${hudPx(14)}px`,
+      color: '#fff2c2',
+      stroke: '#0e1430',
+      strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(110).setVisible(false);
+
+    this.hudAbilities = sharpText(this, 16, h - 52, '', {
+      fontFamily: 'Spectral, serif',
+      fontSize: `${hudPx(11)}px`,
+      color: '#8ec6d6',
+      stroke: '#0e1430',
+      strokeThickness: 2,
+    }).setOrigin(0, 1).setDepth(110);
 
     this.hudGraphics = this.add.graphics().setDepth(108);
 
@@ -253,11 +282,14 @@ export class GameScene extends Phaser.Scene {
 
   private layoutHud(w: number, h: number): void {
     this.hudScore.setPosition(hudPx(16), h - hudPx(28));
+    this.hudAbilities.setPosition(hudPx(16), h - hudPx(32));
     this.hudFps.setPosition(w - hudPx(16), h - hudPx(16));
     this.hudPause.setPosition(Math.round(w / 2), Math.round(h / 2));
     this.hudWarning.setPosition(Math.round(w / 2), h - hudPx(8));
     this.hudWarning.setSize(w, hudPx(8));
-    this.hudMessage.setPosition(Math.round(w / 2), Math.max(hudPx(46), Math.round(h * 0.07)));
+    const messageY = Math.max(hudPx(46), Math.round(h * 0.07));
+    this.hudMessage.setPosition(Math.round(w / 2), messageY);
+    this.hudEncounter.setPosition(Math.round(w / 2), messageY + hudPx(28));
     this.dimOverlay.setPosition(Math.round(w / 2), Math.round(h / 2));
     this.dimOverlay.setSize(w, h);
     this.layoutScoreEntry(w, h);
@@ -323,10 +355,19 @@ export class GameScene extends Phaser.Scene {
     this.firingPointer = false;
     this.firingSpace = false;
     this.tipAge = 0;
+    this.bannerText = '';
     this.hudMessage.setAlpha(1);
     this.hudMessage.setText(COPY.tip);
     const { w, h } = this.view();
     hero.clampToView(w, h);
+  }
+
+  /** A message that holds for a few seconds, then fades. */
+  private showBanner(text: string): void {
+    this.bannerText = text;
+    this.bannerAge = 0;
+    this.hudMessage.setAlpha(1);
+    this.hudMessage.setText(text);
   }
 
   private setupInput(): void {
@@ -402,6 +443,10 @@ export class GameScene extends Phaser.Scene {
           this.hudMessage.setText('');
         }
       }),
+      globalKeyboard.onKeyDown('Shift', () => {
+        if (this.scoreEntryOpen) return;
+        this.ctx.hero.useStillWater();
+      }),
       ...bindHold('ArrowLeft', 'left'),
       ...bindHold('ArrowRight', 'right'),
       ...bindHold('ArrowUp', 'up'),
@@ -476,7 +521,7 @@ export class GameScene extends Phaser.Scene {
         this.ground.setVariation(state.gameLevel);
         this.applyDungeonBackdrop();
         state.gameMode = GameMode.Game;
-        this.hudMessage.setText(`Level ${state.gameLevel}`);
+        this.showBanner(`Level ${state.gameLevel}`);
         const { w, h } = this.view();
         hero.clampToView(w, h);
       }
@@ -499,6 +544,7 @@ export class GameScene extends Phaser.Scene {
     this.ground.update(state);
     if (!(state.gameFrame % 15)) this.hudBlink = !this.hudBlink;
     this.tipAge++;
+    this.bannerAge++;
 
     const pulse = this.ground.backgroundPulse(state.gameFrame);
     this.cameras.main.setBackgroundColor(
@@ -607,6 +653,10 @@ export class GameScene extends Phaser.Scene {
     const alpha = hero.dontShow > 0 ? (Math.floor(hero.dontShow) % 4 < 2 ? 0.4 : 1) : 1;
     const sprite = this.placeSprite(pngKey('hero'), hero.pos[0], hero.pos[1], hero.size[0], hero.size[1], 20);
     sprite.setAlpha(alpha);
+    if (hero.stillWater > 0) {
+      sprite.setAlpha(0.35);
+      sprite.setTint(0x8ec6d6);
+    }
 
     const flashTex = [pngKey('heroAmmoFlash00'), pngKey('heroAmmoFlash01'), pngKey('heroAmmoFlash02')];
     const flashY = [0.8, 1.1, 0.4];
@@ -769,9 +819,16 @@ export class GameScene extends Phaser.Scene {
       if (this.tipAge < 200) this.hudMessage.setAlpha(1);
       else if (this.tipAge < 280) this.hudMessage.setAlpha(1 - (this.tipAge - 200) / 80);
       else this.hudMessage.setAlpha(0);
+    } else if (this.bannerText && this.hudMessage.text === this.bannerText) {
+      if (this.bannerAge < 200) this.hudMessage.setAlpha(1);
+      else if (this.bannerAge < 280) this.hudMessage.setAlpha(1 - (this.bannerAge - 200) / 80);
+      else this.hudMessage.setAlpha(0);
     } else {
       this.hudMessage.setAlpha(1);
     }
+
+    this.drawEncounterBar(g, w);
+    this.hudAbilities.setText(this.abilityLine());
 
     g.fillStyle(0x0e1430, 0.62);
     const pad = hudPx(6);
@@ -862,6 +919,39 @@ export class GameScene extends Phaser.Scene {
       this.placeSprite(pngKey('useItem00'), hero.pos[0], hero.pos[1] - 1.2, 0.4, 0.4, 22);
       this.placeSprite(pngKey('useFocus'), hero.pos[0], hero.pos[1] - 1.2, 0.5, 0.5, 23);
     }
+  }
+
+  private drawEncounterBar(g: Phaser.GameObjects.Graphics, w: number): void {
+    const status = this.ctx.levelSpawner.encounterStatus;
+    if (!status || this.ctx.state.gameMode !== GameMode.Game) {
+      this.hudEncounter.setVisible(false);
+      return;
+    }
+    this.hudEncounter.setVisible(true);
+    this.hudEncounter.setText(encounterById(status.id)?.name ?? status.id);
+    const barW = Math.min(hudPx(220), w * 0.5);
+    const barH = hudPx(6);
+    const x = Math.round(w / 2 - barW / 2);
+    const y = Math.round(this.hudEncounter.y + hudPx(4));
+    g.fillStyle(0x0e1430, 0.8);
+    g.fillRect(x - 2, y - 2, barW + 4, barH + 4);
+    g.fillStyle(0x4a2c5a, 1);
+    g.fillRect(x, y, barW, barH);
+    g.fillStyle(0xc9a55c, 1);
+    g.fillRect(x, y, barW * status.fraction, barH);
+  }
+
+  private abilityLine(): string {
+    const { state, hero } = this.ctx;
+    const parts: string[] = [];
+    if (state.hasAbility('pool-light')) parts.push(abilityById('pool-light')?.name ?? 'Pool Light');
+    if (state.hasAbility('still-water')) {
+      const name = abilityById('still-water')?.name ?? 'Still Water';
+      if (hero.stillWater > 0) parts.push(`${name} ${COPY.stillWaterActive}`);
+      else if (hero.stillWaterCooldown > 0) parts.push(`${name} ${Math.ceil(hero.stillWaterCooldown / 50)}s`);
+      else parts.push(`${name} ${COPY.stillWaterReady}`);
+    }
+    return parts.join('  ·  ');
   }
 
   private playLifeLostFx(): void {

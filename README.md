@@ -4,6 +4,8 @@ A Phaser 3 vertical shooter: Max flies the dungeons and keeps the village from g
 
 The playable loop is a web port of [Chromium B.S.U.](https://chromium-bsu.sourceforge.io/), rethemed. See **Credits** below.
 
+The campaign we are building toward is the Design page at `/gdd` (notes stay in the browser). The Cenote is built to that campaign; Web and Garden are not yet, so the game still loops the three dungeons.
+
 ## Screenshots
 
 | Village square | Sinking Cenote |
@@ -13,6 +15,10 @@ The playable loop is a web port of [Chromium B.S.U.](https://chromium-bsu.source
 | Mechanics reference | Art catalog |
 | --- | --- |
 | ![Mechanics page — controls, shades, and pickups](docs/screenshots/mechanics.jpg) | ![Art page — loaded textures and lore notes](docs/screenshots/art.jpg) |
+
+| Design |
+| --- |
+| ![Design page — the campaign, with notes per section](docs/screenshots/gdd.jpg) |
 
 Regenerate after UI changes (dev server must be running):
 
@@ -47,6 +53,7 @@ npm run record      # headless playthrough → recordings/playthrough.mp4
 | Left click / Space | Fire |
 | Enter (in-game, twice) | Arm, then lantern flash |
 | Double right-click | Lantern flash |
+| Shift (after Still Water) | Sink for 1 second (shots and shades miss) |
 | P | Pause |
 | Esc | Return to menu |
 

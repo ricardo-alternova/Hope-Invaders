@@ -12,6 +12,7 @@ describe('COPY', () => {
     expect(COPY.hope).toBe('HOPE');
     expect(COPY.resolve).toBe('RSV');
     expect(COPY.title).toBe('Hope Invaders');
+    expect(COPY.docsDesign).toBe('Design');
     expect(COPY.docsMechanics).toBe('Mechanics');
     expect(COPY.docsArt).toBe('Art');
   });

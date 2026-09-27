@@ -5,6 +5,8 @@ import {
   TARGET_FPS,
 } from '../constants';
 
+export type AbilityId = 'pool-light' | 'still-water';
+
 export class GameState {
   gameMode: GameMode = GameMode.Menu;
   gameFrame = 0;
@@ -15,6 +17,12 @@ export class GameState {
   scrollSpeed = SCROLL_SPEED;
   heroSuccess = 0;
   heroDeath = 0;
+  /** Abilities earned this run. Kept across dungeons, cleared by a new game. */
+  unlocked = new Set<AbilityId>();
+
+  hasAbility(id: AbilityId): boolean {
+    return this.unlocked.has(id);
+  }
 
   get gameSkillValue(): number {
     return Math.min(1.9, GAME_SKILL_BASE + 0.5 + (this.gameLevel - 1) * 0.05);
@@ -41,6 +49,7 @@ export class GameState {
     this.gamePause = false;
     this.heroSuccess = 0;
     this.heroDeath = 0;
+    this.unlocked.clear();
     this.updateSkill();
   }
 }

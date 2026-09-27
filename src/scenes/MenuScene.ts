@@ -32,9 +32,11 @@ export class MenuScene extends Phaser.Scene {
   private startButton!: Phaser.GameObjects.Rectangle;
   private startText!: Phaser.GameObjects.Text;
   private hint!: Phaser.GameObjects.Text;
+  private linkDesign!: Phaser.GameObjects.Text;
   private linkMechanics!: Phaser.GameObjects.Text;
   private linkArt!: Phaser.GameObjects.Text;
   private linkSep!: Phaser.GameObjects.Text;
+  private linkSep2!: Phaser.GameObjects.Text;
   private controls!: Phaser.GameObjects.Text;
   private license!: Phaser.GameObjects.Text;
 
@@ -132,15 +134,21 @@ export class MenuScene extends Phaser.Scene {
       fontSize: '15px',
       color: '#c9a55c',
     };
-    this.linkMechanics = sharpText(this, 0, 0, COPY.docsMechanics, linkStyle)
-      .setOrigin(1, 0.5)
+    this.linkDesign = sharpText(this, 0, 0, COPY.docsDesign, linkStyle)
+      .setOrigin(0, 0.5)
       .setDepth(21)
       .setInteractive({ useHandCursor: true });
-    this.linkSep = sharpText(this, 0, 0, '·', linkStyle).setOrigin(0.5).setDepth(12);
+    this.linkMechanics = sharpText(this, 0, 0, COPY.docsMechanics, linkStyle)
+      .setOrigin(0, 0.5)
+      .setDepth(21)
+      .setInteractive({ useHandCursor: true });
+    this.linkSep = sharpText(this, 0, 0, '·', linkStyle).setOrigin(0, 0.5).setDepth(12);
+    this.linkSep2 = sharpText(this, 0, 0, '·', linkStyle).setOrigin(0, 0.5).setDepth(12);
     this.linkArt = sharpText(this, 0, 0, COPY.docsArt, linkStyle)
       .setOrigin(0, 0.5)
       .setDepth(21)
       .setInteractive({ useHandCursor: true });
+    this.bindDocLink(this.linkDesign, 'gdd.html');
     this.bindDocLink(this.linkMechanics, 'mechanics.html');
     this.bindDocLink(this.linkArt, 'art.html');
 
@@ -244,9 +252,7 @@ export class MenuScene extends Phaser.Scene {
     this.controls.setPosition(playX, Math.round(playY + playH / 2 - 18));
     this.controls.setWordWrapWidth(colW - pad * 2);
     const linksY = Math.round(this.controls.y - this.controls.height - 14);
-    this.linkSep.setPosition(playX, linksY);
-    this.linkMechanics.setPosition(playX - 12, linksY);
-    this.linkArt.setPosition(playX + 12, linksY);
+    this.layoutDocLinks(playX, linksY);
 
     const scoreTop = scoreY - scoreH / 2;
     this.scoreHeading.setPosition(scoreX, Math.round(scoreTop + pad));
@@ -257,6 +263,17 @@ export class MenuScene extends Phaser.Scene {
     this.scores.setFontSize(line);
     this.scores.setLineSpacing(Math.max(1, Math.floor(listH / HI_SCORE_HIST) - line));
     this.license.setPosition(Math.round(w / 2), Math.round(h - 18));
+  }
+
+  private layoutDocLinks(playX: number, linksY: number): void {
+    const gap = 8;
+    const links = [this.linkDesign, this.linkSep, this.linkMechanics, this.linkSep2, this.linkArt];
+    const total = links.reduce((sum, label) => sum + label.width, 0) + gap * (links.length - 1);
+    let x = playX - total / 2;
+    for (const label of links) {
+      label.setPosition(x, linksY);
+      x += label.width + gap;
+    }
   }
 
   private bindDocLink(label: Phaser.GameObjects.Text, file: string): void {
@@ -270,7 +287,7 @@ export class MenuScene extends Phaser.Scene {
 
   private docLinkHit(pointer: Phaser.Input.Pointer): boolean {
     return this.input.hitTestPointer(pointer).some(
-      (obj) => obj === this.linkMechanics || obj === this.linkArt,
+      (obj) => obj === this.linkDesign || obj === this.linkMechanics || obj === this.linkArt,
     );
   }
 

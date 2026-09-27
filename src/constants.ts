@@ -18,6 +18,11 @@ export const SCROLL_SPEED = -0.045;
 export const TARGET_FPS = 50;
 /** Brief invulnerability after a hit so overlapping enemies don't melt shields in one frame. */
 export const HERO_HIT_IFRAMES = 12;
+/** Still Water: 1 second submerged, then 8 seconds before it can be used again. */
+export const STILL_WATER_FRAMES = 50;
+export const STILL_WATER_COOLDOWN = 400;
+/** Pool Light fires one Lamp bolt on every Nth Wand volley. */
+export const POOL_LIGHT_EVERY = 3;
 /** Screen-space padding. Sides stay open; the top quarter is off-limits. */
 export const PLAYFIELD_PAD = {
   left: 6,

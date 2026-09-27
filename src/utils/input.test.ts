@@ -13,6 +13,12 @@ describe('normalizeKey', () => {
     expect(normalizeKey({ code: '', key: ' ' })).toBe('Space');
   });
 
+  it('maps either Shift key to Shift', () => {
+    expect(normalizeKey({ code: 'ShiftLeft', key: 'Shift' })).toBe('Shift');
+    expect(normalizeKey({ code: 'ShiftRight', key: 'Shift' })).toBe('Shift');
+    expect(normalizeKey({ code: '', key: 'Shift' })).toBe('Shift');
+  });
+
   it('ignores unrelated keys', () => {
     expect(normalizeKey({ code: 'KeyQ', key: 'q' })).toBeNull();
   });

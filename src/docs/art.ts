@@ -89,6 +89,7 @@ app.innerHTML = `
       <div class="brand">Hope Invaders</div>
       <nav>
         <a href="./">Play</a>
+        <a href="./gdd">Design</a>
         <a href="./art" aria-current="page">Art</a>
         <a href="./mechanics">Mechanics</a>
       </nav>
